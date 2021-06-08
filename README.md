@@ -3,7 +3,7 @@ Every day a number of Threat Intelligence reports come into the world. Prepared 
 
 The idea of this repository is to analyse public Threat Intelligence reports, interesting TTPs, tools and various offensive tradecraft to generate ready to use detection ideas and rules implementations, which can be used by threat hunters and security monitoring teams.
 
-## Content
+## Total Rules available
 ### TTPs
 ### Defense Evasion
 - T1218 - Signed Binary Proxy Execution
