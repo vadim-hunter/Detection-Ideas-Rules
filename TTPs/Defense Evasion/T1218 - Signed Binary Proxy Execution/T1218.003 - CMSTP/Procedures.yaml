@@ -41,7 +41,7 @@ procedures:
         - Channel:Sysmon AND EventID:1 AND (CommandLine:"*cmstp *" OR Image:"\\csmtp.exe" OR OriginalFileName:"cmstp.exe" OR Description:"Microsoft Connection Manager Profile Installer")
           AND CommandLine:*/s* AND CommandLine:("\\Users\\" OR "\\Temp\\" OR "\\ProgramData\\")            
       ideas:
-        - monitor suspicious images loaded by CMSTP.
+        - monitor suspicious images loading by CMSTP.
       telemetry:
         image_load:
           - Sysmon EID 7
@@ -50,7 +50,7 @@ procedures:
         - Channel:Sysmon AND EventID:7 AND Image:"\\cmstp.exe" AND (NOT ImageLoaded:(*.dll OR *.ocx) OR ImageLoaded:("\\Users\\" OR "\\Temp\\" OR "\\ProgramData\\"))
   procedure T1218.003.002:      
     description: >
-      CMSTP can also be abused to run malicious code from external sources, like .SCT scripts
+      CMSTP.exe may be abused to load and execute DLLs and/or COM scriptlets (SCT) from remote servers.
     detection:
       ideas:
         - monitor for outbound network connections initiated by CMSTP.
