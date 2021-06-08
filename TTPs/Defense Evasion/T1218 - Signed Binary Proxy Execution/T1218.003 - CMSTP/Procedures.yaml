@@ -16,30 +16,44 @@ procedures:
     description: >
       CMSTP can be abused to run malicious code from specially prepared INF files.
     detection:
-      ideas: >
-        - monitor executable image loading by CMSTP.exe with specific command-line parameters
-        - monitor CMSTP.exe process creation with specific command-line parameters
-        - monitor unusual CMSTP parent processes (office apps, browsers, server apps etc)
+      ideas:
+        - monitor unusual CMSTP parent processes (office apps, browsers, server apps etc).
       telemetry:
         process_create:
           - Windows EID 4688
           - Sysmon EID 1
           - EDR (PsSetCreateProcessNotifyRoutine)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND NewProcessName:"\\cmstp.exe" AND CommandLine:*/s* 
+          AND ParentProcessName:("\\chrome.exe" OR "\\iexplore.exe" OR "\\winword.exe" OR "\\visio.exe" OR "\\powershell.exe" OR "\\jbosssvc.exe" OR "\\cmd.exe /c")
+        - Channel:Sysmon AND EventID:1 AND (CommandLine:"*cmstp *" OR Image:"\\csmtp.exe" OR OriginalFileName:"cmstp.exe" OR Description:"Microsoft Connection Manager Profile Installer")
+          AND CommandLine:*/s* AND ParentImage:("\\chrome.exe" OR "iexplore.exe" OR "\\winword.exe" OR "\\visio.exe" OR "\\powershell.exe" OR "jbosssvc.exe" OR "\\cmd.exe /c")
+      ideas:
+        - monitor CMSTP.exe process creation with specific parameters and "bad" folders in command line.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine)
+      rules:
+        - Channel:Windows-Security AND EventID:4688 AND NewProcessName:"\\cmstp.exe" AND CommandLine:*/s* 
+          AND CommandLine:("\\Users\\" OR "\\Temp\\" OR "\\ProgramData\\")
+        - Channel:Sysmon AND EventID:1 AND (CommandLine:"*cmstp *" OR Image:"\\csmtp.exe" OR OriginalFileName:"cmstp.exe" OR Description:"Microsoft Connection Manager Profile Installer")
+          AND CommandLine:*/s* AND CommandLine:("\\Users\\" OR "\\Temp\\" OR "\\ProgramData\\")            
+      ideas:
+        - monitor suspicious images loaded by CMSTP.
+      telemetry:
         image_load:
           - Sysmon EID 7
           - EDR (PsSetLoadImageNotifyRoutine)
-      rules: >
-        - Channel:Sysmon AND EventID:1 AND (CommandLine:"*cmstp *" OR Image:"\\csmtp.exe" OR OriginalFileName:"cmstp.exe" OR Description:"Microsoft Connection Manager Profile Installer")
-          AND CommandLine:*/s* AND ParentImage:("\\chrome.exe" OR "iexplore.exe" OR "\\winword" OR "\\visio.exe" OR "\\powershell.exe" OR "jbosssvc.exe" OR "\\cmd.exe /c")
-        - Channel:Windows-Security AND EventID:4688 AND NewProcessName:"\\cmstp.exe" AND CommandLine:*/s* 
-          AND ParentProcessName:("\\chrome.exe" OR "\\iexplore.exe" OR "\\winword.exe" OR "\\visio.exe" OR "\\powershell.exe" OR "\\jbosssvc.exe" OR "\\cmd.exe /c")
-        - Channel:Sysmon AND EventID:7 AND Image:"\\cmstp.exe" AND NOT ImageLoaded:(*.dll OR *.ocx)
+      rules:
+        - Channel:Sysmon AND EventID:7 AND Image:"\\cmstp.exe" AND (NOT ImageLoaded:(*.dll OR *.ocx) OR ImageLoaded:("\\Users\\" OR "\\Temp\\" OR "\\ProgramData\\"))
   procedure T1218.003.002:      
     description: >
       CMSTP can also be abused to run malicious code from external sources, like .SCT scripts
     detection:
-      ideas: >
-        - monitor for outbound network connections initiated by CMSTP.exe process.
+      ideas:
+        - monitor for outbound network connections initiated by CMSTP.
       telemetry:
         network_connection:
           - Windows EID 5156
