@@ -1,0 +1,38 @@
+tactics:
+  - TA0011 - Command and Control
+techniques:
+  - T1071 - Application Layer Protocol
+subtechniques:
+  - T1071.001 - Web Protocols
+description: >
+  Adversaries may communicate using application layer protocols associated with web traffic to avoid detection/network filtering by blending in with existing traffic. 
+links:
+  - https://attack.mitre.org/techniques/T1071/001/
+detection:
+  idea: >
+    - monitor for suspicious outbound network connections intiated by NOT Web browsers/Dropbox desktop client processes
+      to Dropbox API IP range 162.125.70.0/24 (check your range, it may vary). Such activity is very suspicious.
+      Note: in general web browsers don't have to use Dropbox API range, check it and remove 2nd condition if you wish.
+  telemetry:
+    network_connection:
+      - Windows EID 5156
+      - Sysmon EID 3
+      - EDR (WFP)
+  rules:
+    - Channel:Windows-Security AND EventID:5156 AND Direction:Outbound AND DestinationAddress:"162.125.70.0/24"
+      AND NOT ApplicationName:("\\Dropbox\\Client\\Dropbox.exe" OR "\\Dropbox\\Update\\DropboxUpdate.exe") 
+      AND NOT ApplicationName:("\\chrome.exe" OR "\\firefox.exe" OR "\\iexplore.exe" OR "\\opera.exe" OR "\\microsoftedgecp.exe" OR "\\microsoftedge.exe")
+    - Channel:Sysmon AND EventID:3 AND Initiated:true AND DestinationIp:"162.125.70.0/24"
+      AND NOT Image:("\\Dropbox\\Client\\Dropbox.exe" OR "\\Dropbox\\Update\\DropboxUpdate.exe")  
+      AND NOT Image:("\\chrome.exe" OR "\\firefox.exe" OR "\\iexplore.exe" OR "\\opera.exe" OR "\\microsoftedgecp.exe" OR "\\microsoftedge.exe")
+   idea: >
+     - monitor for suspicious Dropbox API sub-domains DNS queries intiated by NOT Web browsers/Dropbox desktop client processes
+       Note: in general web browsers don't have to query Dropbox API sub-domains, check it and remove 2nd condition if you wish.
+   telemetry:
+     dns_query:
+       - Sysmon EID 22
+       - EDR (Microsoft-Windows-DNS-Client ETW)
+   rules:
+     - Channel:Sysmon AND EventID:22 AND QueryName:("dropboxapi.com" OR "api.dropbox.com")
+       AND NOT Image:("\\Dropbox\\Client\\Dropbox.exe" OR "\\Dropbox\\Update\\DropboxUpdate.exe") 
+       AND NOT Image:("\\chrome.exe" OR "\\firefox.exe" OR "\\iexplore.exe" OR "\\opera.exe" OR "\\microsoftedgecp.exe" OR "\\microsoftedge.exe")
