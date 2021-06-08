@@ -50,8 +50,7 @@ procedures:
       CMSTP can also be abused to run malicious code from external sources, like .SCT scripts
     emulation:
       tools:
-        - InjectAllTheThingsx64.dll
-        - cmstp_external.inf
+        - powersct.sct
       cmd:
         - cmstp.exe /s powersct.sct
     detection:
