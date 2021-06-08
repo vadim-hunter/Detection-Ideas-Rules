@@ -12,3 +12,6 @@ The idea of this repository is to analyze public Threat Intelligence reports, in
   - T1564.001 - Hidden Files and Directories (2/4)
 ### Credential Access
 - T1187 - Forced Authentication (1/3)
+### Command and Control
+- T1071 - Application Layer Protocol
+  - T1071.001 - Web Protocols (2/3)
