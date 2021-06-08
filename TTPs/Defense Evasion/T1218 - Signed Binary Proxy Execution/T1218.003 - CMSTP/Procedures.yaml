@@ -31,10 +31,10 @@ procedures:
         process_create:
           - Windows EID 4688
           - Sysmon EID 1
-          - EDR (PsSetCreateProcessNotifyRoutineEx)
+          - EDR (PsSetCreateProcessNotifyRoutine)
         image_load:
           - Sysmon EID 7
-          - EDR (PsSetLoadImageNotifyRoutineEx)
+          - EDR (PsSetLoadImageNotifyRoutine)
       ideas:
         - monitor executable image loading by CMSTP.exe with specific command-line parameters
         - monitor CMSTP.exe process creation with specific command-line parameters
