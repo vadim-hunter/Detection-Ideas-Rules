@@ -10,3 +10,5 @@ The idea of this repository is to analyze public Threat Intelligence reports, in
   - T1218.003 - CSMTP (4/5)
 - T1564 - Hide Artifacts
   - T1564.001 - Hidden Files and Directories (2/4)
+### Credential Access
+- T1187 - Forced Authentication (1/3)
