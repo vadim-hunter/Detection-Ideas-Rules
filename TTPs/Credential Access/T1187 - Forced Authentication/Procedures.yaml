@@ -1,0 +1,20 @@
+tactics:
+  - TA0006 - Credential Access
+techniques:
+  - T1187 - Forced Authentication
+description: >
+  Adversaries may gather credential material by invoking or forcing a user to automatically provide authentication information through a mechanism in which they can intercept.
+detection:
+  ideas:
+    - monitor for outbound network connections to external SMB servers initiated by users workstations, there may be some FPs, so deal with them.
+  telemetry:
+    network_connection:
+      - Windows EID 5156
+      - Sysmon EID 3
+      - EDR (WFP)
+      - NGFW
+      - Suricata
+  rules:
+    - Channel:Windows-Security AND EventID:5156 AND Direction:Outbound AND DestinationPort:445 AND DestinationAddress is Remote
+    - Channel:Sysmon AND EventID:3 AND Initiated:true AND DestinationPort:445 AND DestinationIp is Remote
+    - LogSource:(NGFW OR Suricata) AND EventType:NetworkConnection AND Direction:Outbound AND DestinationPort:445 AND DestinationAddress is Remote
