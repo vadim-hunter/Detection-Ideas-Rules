@@ -27,6 +27,10 @@ procedures:
         - cmstp.exe /ns /s c:\hunting\hunts\cmstp\CorpVPN.inf
         - cmstp.exe /s c:\hunting\hunts\cmstp\CorpVPN.inf
     detection:
+      ideas: >
+        - monitor executable image loading by CMSTP.exe with specific command-line parameters
+        - monitor CMSTP.exe process creation with specific command-line parameters
+        - monitor unusual CMSTP parent processes (office apps, browsers, server apps etc)
       telemetry:
         process_create:
           - Windows EID 4688
@@ -35,10 +39,6 @@ procedures:
         image_load:
           - Sysmon EID 7
           - EDR (PsSetLoadImageNotifyRoutine)
-      ideas:
-        - monitor executable image loading by CMSTP.exe with specific command-line parameters
-        - monitor CMSTP.exe process creation with specific command-line parameters
-        - monitor unusual CMSTP parent processes (office apps, browsers, server apps etc)
       rules: >
         - Channel:Sysmon AND EventID:1 AND (CommandLine:"*cmstp *" OR Image:"\\csmtp.exe" OR OriginalFileName:"cmstp.exe" OR Description:"Microsoft Connection Manager Profile Installer")
           AND CommandLine:*/s* AND ParentImage:("\\chrome.exe" OR "iexplore.exe" OR "\\winword" OR "\\visio.exe" OR "\\powershell.exe" OR "jbosssvc.exe" OR "\\cmd.exe /c")
@@ -54,13 +54,13 @@ procedures:
       cmd:
         - cmstp.exe /s powersct.sct
     detection:
+      ideas: >
+        - monitor for outbound network connections initiated by CMSTP.exe process.
       telemetry:
         network_connection:
           - Windows EID 5156
           - Sysmon EID 3
           - EDR (WFP)
-      ideas:
-        - monitor for outbound network connections initiated by CMSTP.exe process.
       rules: >
         - Channel:Sysmon AND EventID:3 AND Image:"\\cmstp.exe" AND Initiated:true AND DestinationIp is Remote
         - Channel:Windows-Security AND EventID:5156 AND ApplicationName:"\\cmstp.exe" AND Direction:Outbound AND DestinationAddress is Remote
