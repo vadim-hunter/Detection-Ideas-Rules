@@ -6,5 +6,5 @@ The idea of this repository is to analyse public Threat Intelligence reports, in
 ## Content
 ### TTPs
 ### Defense Evasion
-  #### T1218 - Signed Binary Proxy Execution
- - T1218.003 - CSMTP (5)
+- T1218 - Signed Binary Proxy Execution
+  - T1218.003 - CSMTP (5)
