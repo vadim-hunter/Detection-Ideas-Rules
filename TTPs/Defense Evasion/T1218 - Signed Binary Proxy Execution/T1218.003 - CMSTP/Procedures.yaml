@@ -15,17 +15,6 @@ procedures:
   procedure T1218.003.001:
     description: >
       CMSTP can be abused to run malicious code from specially prepared INF files.
-    emulation:
-      description: >
-        Compile InjectAllTheThingsx64.dll to run some binary (e.g. calc.exe). Prepeare .inf file in advance (see examples).
-        Set remote server (e.g. WebDAV), host the payload on it and run the following commands
-      tools:
-        - InjectAllTheThingsx64.dll
-        - CorpVPN.inf
-      cmd:
-        - cmstp.exe /ni /s c:\hunting\hunts\cmstp\CorpVPN.inf
-        - cmstp.exe /ns /s c:\hunting\hunts\cmstp\CorpVPN.inf
-        - cmstp.exe /s c:\hunting\hunts\cmstp\CorpVPN.inf
     detection:
       ideas: >
         - monitor executable image loading by CMSTP.exe with specific command-line parameters
@@ -48,11 +37,6 @@ procedures:
   procedure T1218.003.002:      
     description: >
       CMSTP can also be abused to run malicious code from external sources, like .SCT scripts
-    emulation:
-      tools:
-        - powersct.sct
-      cmd:
-        - cmstp.exe /s powersct.sct
     detection:
       ideas: >
         - monitor for outbound network connections initiated by CMSTP.exe process.
