@@ -8,8 +8,6 @@ description: >
   Adversaries may set files and directories to be hidden to evade detection mechanisms. 
 links:
   - https://attack.mitre.org/techniques/T1564/001/
-platforms:
-  - windows
 procedures:
   procedure T1564.001.001:
     description: >
