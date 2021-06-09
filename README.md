@@ -5,14 +5,14 @@ The idea of this repository is to analyze public Threat Intelligence reports, in
 
 ## Summary
 ### MITRE ATT&CK TTPs
-## Defense Evasion
+#### Defense Evasion
 - T1218 - Signed Binary Proxy Execution
   - T1218.003 - CSMTP (4/7)
 - T1564 - Hide Artifacts
   - T1564.001 - Hidden Files and Directories (2/4)
-## Credential Access
+#### Credential Access
 - T1187 - Forced Authentication (1/3)
-## Command and Control
+#### Command and Control
 - T1071 - Application Layer Protocol
   - T1071.001 - Web Protocols (2/3)
 
