@@ -16,6 +16,6 @@ The idea of this repository is to analyze public Threat Intelligence reports, in
 - T1071 - Application Layer Protocol
   - T1071.001 - Web Protocols (2/3)
 
-### Threat Intelligence Reports
+### Threat Intelligence
 - Microsoft Threat Intelligence Center (MSTIC)
   - Breaking down NOBELIUM’s latest early-stage toolset
