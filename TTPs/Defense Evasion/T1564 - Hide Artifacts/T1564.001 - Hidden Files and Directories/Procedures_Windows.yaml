@@ -30,7 +30,7 @@ procedures:
         - Copy-Item .\evil-hidden.exe -Destination "c:\Users\target"
         - Move-Item .\evil-hidden.exe -Destination "c:\Users\target"
     detection:
-      idea: >
+      ideas: >
         - monitor executable files/scripts/archives creation with *HIDDEN* file attribute, use file extensions and (it is better) 
           files magic bytes (4D5A*, 504B0304*, etc). Note: your EDR should be able to provide such telemetry.
       telemetry:
@@ -60,7 +60,7 @@ procedures:
         - powershell -command "(gi -force calc.exe).Attributes ='h'"
         - powershell -command "(gi -force calc.exe).Attributes += 'h'"
     detection:
-      idea: >
+      ideas: >
         - monitor for specific command-lines (cmd.exe) and Powershell cmdlets execution setting HIDDEN attributes to files/folders.
       telemetry:
         process_create:
