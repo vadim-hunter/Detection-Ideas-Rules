@@ -66,7 +66,7 @@ analysis:
         process_create:
           - Windows EID 4688
           - Sysmon EID 1
-          - EDR (PsSetCreateProcessNotifyRoutine)
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
         script_execution:
           - Windows-Powershell EID 400
           - EDR (Microsoft-Windows-PowerShell ETW)
@@ -84,7 +84,7 @@ analysis:
           Note: your EDR should be able to provide such telemetry.
       telemetry:
         process_create:
-          - EDR (PsSetCreateProcessNotifyRoutine)
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
       rules:
          - Channel:EDR AND EventType:ProcessCreate AND ProcessImageFileAttribute:*hidden*
   quote: >
@@ -129,7 +129,7 @@ analysis:
       telemetry:
         process_create:
           - Sysmon EID 1
-          - EDR (PsSetCreateProcessNotifyRoutine)
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
       rules:
         - Channel:Sysmon AND EventID:1 AND Image:("\\Dropbox\\Client\\Dropbox.exe" OR "\\Dropbox\\Update\\DropboxUpdate.exe")
           AND NOT (OriginalFileName:"Dropbox.exe" AND Description:"Dropbox" AND Company:"Dropbox, Inc.")
@@ -156,7 +156,7 @@ analysis:
         process_create:
           - Windows EID 4688
           - Sysmon EID 1
-          - EDR (PsSetCreateProcessNotifyRoutine)
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
       rules:
         - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\rundll32.exe" OR CommandLine:"rundll32 *") AND
           CommandLine:(*LaunchINFSection* OR *RegisterOCX* OR *MiniDump* OR *OpenURL* OR *PrintHTML* OR *LaunchApplication* OR *InstallHinfSection* 
@@ -170,7 +170,7 @@ analysis:
         process_create:
           - Windows EID 4688
           - Sysmon EID 1
-          - EDR (PsSetCreateProcessNotifyRoutine)
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
       rules:
         - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\rundll32.exe" OR CommandLine:"rundll32 *") AND
           CommandLine:(*LaunchINFSection* OR *RegisterOCX* OR *MiniDump* OR *OpenURL* OR *PrintHTML* OR *LaunchApplication* OR *InstallHinfSection* 
@@ -188,7 +188,7 @@ analysis:
         process_create:
           - Windows EID 4688
           - Sysmon EID 1
-          - EDR (PsSetCreateProcessNotifyRoutine)
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
       rules:
         - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\rundll32.exe" OR CommandLine:"rundll32 *") AND CreatorProcessName:"\\System32\\explorer.exe" AND 
           CommandLine:(*LaunchINFSection* OR *RegisterOCX* OR *MiniDump* OR *OpenURL* OR *PrintHTML* OR *LaunchApplication* OR *InstallHinfSection* 
