@@ -1,1 +1,198 @@
-#TBD
+source_type: "Threat Intelligence Report"
+report:
+  title: "Breaking down NOBELIUM’s latest early-stage toolset"
+  vendor: "Microsoft Threat Intelligence Center (MSTIC)"
+  published: "28.05.2021"
+  link:
+    - https://www.microsoft.com/security/blog/2021/05/28/breaking-down-nobeliums-latest-early-stage-toolset/
+  analyst: 
+    - Vadim Khrykov (@BlackMatter23)
+  threat:
+    name:
+      - NOBELIUM
+    aliases:
+      - G0016
+      - APT29
+      - Cozy Bear
+    attribution:
+      - Russia
+    tools:
+      - EnvyScout
+      - BoomBox
+      - NativeZone
+      - VaporRage
+analysis:
+  quote: >
+    "The first, prefixed with a file:// protocol handler, is indicative of an attempt to coax the operating system to send sensitive NTLMv2 material 
+     to the specified actor-controlled IP address over port 445."
+  mitre_attack:
+    credential_access:
+      - Т1187 - Forced Authentication
+    detection:
+      ideas:
+        - monitor for outbound network connections to external SMB servers initiated by users workstations, there may be some FPs, so deal with them.
+      telemetry:
+        network_connection:
+          - Windows EID 5156
+          - Sysmon EID 3
+          - EDR (WFP)
+          - NGFW
+          - Suricata
+      rules:
+        - Channel:Windows-Security AND EventID:5156 AND Direction:Outbound AND DestinationPort:445 AND DestinationAddress is Remote
+        - Channel:Sysmon AND EventID:3 AND Initiated:true AND DestinationPort:445 AND DestinationIp is Remote
+        - LogSource:(NGFW OR Suricata) AND EventType:NetworkConnection AND Direction:Outbound AND DestinationPort:445 AND DestinationAddress is Remote
+  quote: >
+    "The user is likely expected to interact with NV.lnk, but manual execution of the hidden file BOOM.exe also results in the infection of the system. 
+     The individual contents of each file are detailed below."
+  mitre_attack:
+    defense_evasion:
+      - T1564.001 - Hide Artifacts - Hidden Files and Directories
+    detection:
+      ideas: >
+        - monitor executable files/scripts/archives creation with HIDDEN file attribute, use file extensions and (it is better) 
+          files magic bytes (4D5A*, 504B0304*, etc). Note: your EDR should be able to provide such telemetry.
+      telemetry:
+        file_create:
+          - EDR (minifilter)
+        file_rename:
+          - EDR (minifilter)
+      rules:
+        - Channel:EDR AND EventType:(FileCreate OR FileRename) AND FileAttribute:*hidden* 
+          AND (TargetFilename:(*.exe OR *.dll OR *.ps1 OR *.bat OR *.vbs OR *.zip OR *.rar OR *.7z) OR FileMagicBytes:(4D5A* OR 504B0304* OR 52617221*))
+      ideas: >
+        - monitor for specific command lines (cmd.exe) and Powershell cmdlets aimed at setting HIDDEN attributes to files/folders.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine)
+        script_execution:
+          - Windows-Powershell EID 400
+          - EDR (Microsoft-Windows-PowerShell ETW)
+      rules:
+        - Channel:Windows-Security AND EventID:4688 (NewProcessName:"\\attrib.exe" OR CommandLine:"*attrib *") AND CommandLine:*+h*
+        - Channel:Sysmon AND EventID:1 AND (CommandLine:"*attrib *" OR Image:"\\attrib.exe" OR OriginalFileName:"ATTRIB.exe" OR Description:"Attribute Utility") 
+          AND CommandLine:*+h*
+        - Channel:Sysmon AND EventID:1 AND 
+          (CommandLine:"*powershell *" OR Image:"\\powershell.exe" OR OriginalFileName:"PowerShell.EXE" OR Description:"Windows PowerShell") 
+          AND CommandLine:*Attributes* AND CommandLine:"*=*" AND CommandLine:"*\'h'\*"
+        - Channel:Windows-Powershell AND EventID:400 AND HostApplication:"*powershell *" AND HostApplication:*Attributes* 
+          AND HostApplication:"*=*" AND HostApplication:"*\'h'\*
+      ideas: >
+        - monitor for process creation events where created process image has HIDDEN attribute.
+          Note: your EDR should be able to provide such telemetry.
+      telemetry:
+        process_create:
+          - EDR (PsSetCreateProcessNotifyRoutine)
+      rules:
+         - Channel:EDR AND EventType:ProcessCreate AND ProcessImageFileAttribute:*hidden*
+  quote: >
+    "The downloader is responsible for downloading and executing the next-stage components of the infection. 
+     These components are downloaded from Dropbox (using a hardcoded Dropbox Bearer/Access token)."
+  mitre_attack:
+    command-and-control:
+      - T1071.001 - Application Layer Protocol - Web Protocols
+    exfiltration:
+      - T1041 - Exfiltration Over C2 Channel
+    detection:
+      ideas: >
+        - monitor for suspicious outbound network connections intiated by NOT Web browsers/Dropbox desktop client processes
+          to Dropbox API IP range 162.125.70.0/24 (check your range, it may vary). Such activity is very suspicious.
+          Note: in general web browsers don't have to use Dropbox API range, check it and remove 2nd condition if you wish.
+      telemetry:
+        network_connection:
+          - Windows EID 5156
+          - Sysmon EID 3
+          - EDR (WFP)
+      rules:
+        - Channel:Windows-Security AND EventID:5156 AND Direction:Outbound AND DestinationAddress:"162.125.70.0/24"
+          AND NOT ApplicationName:("\\Dropbox\\Client\\Dropbox.exe" OR "\\Dropbox\\Update\\DropboxUpdate.exe") 
+          AND NOT ApplicationName:("\\chrome.exe" OR "\\firefox.exe" OR "\\iexplore.exe" OR "\\opera.exe" OR "\\microsoftedgecp.exe" OR "\\microsoftedge.exe")
+        - Channel:Sysmon AND EventID:3 AND Initiated:true AND DestinationIp:"162.125.70.0/24"
+          AND NOT Image:("\\Dropbox\\Client\\Dropbox.exe" OR "\\Dropbox\\Update\\DropboxUpdate.exe")  
+          AND NOT Image:("\\chrome.exe" OR "\\firefox.exe" OR "\\iexplore.exe" OR "\\opera.exe" OR "\\microsoftedgecp.exe" OR "\\microsoftedge.exe")
+      ideas: >
+        - monitor for suspicious Dropbox API sub-domains DNS queries intiated by NOT Web browsers/Dropbox desktop client processes
+          Note: in general web browsers don't have to query Dropbox API sub-domains, check it and remove 2nd condition if you wish.
+      telemetry:
+        dns_query:
+          - Sysmon EID 22
+          - EDR (Microsoft-Windows-DNS-Client ETW)
+      rules:
+        - Channel:Sysmon AND EventID:22 AND QueryName:("dropboxapi.com" OR "api.dropbox.com")
+          AND NOT Image:("\\Dropbox\\Client\\Dropbox.exe" OR "\\Dropbox\\Update\\DropboxUpdate.exe") 
+          AND NOT Image:("\\chrome.exe" OR "\\firefox.exe" OR "\\iexplore.exe" OR "\\opera.exe" OR "\\microsoftedgecp.exe" OR "\\microsoftedge.exe")
+      ideas: >
+        - counter-hunt: to avoid detections described above adversary may name its malicious binary like legitimate Dropbox executables.
+          Therefore we need to hunt for binaries pretending to be legitimate Dropbox binaries using VERSIONINFO attributes.
+      telemetry:
+        process_create:
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine)
+      rules:
+        - Channel:Sysmon AND EventID:1 AND Image:("\\Dropbox\\Client\\Dropbox.exe" OR "\\Dropbox\\Update\\DropboxUpdate.exe")
+          AND NOT (OriginalFileName:"Dropbox.exe" AND Description:"Dropbox" AND Company:"Dropbox, Inc.")
+      ideas: >
+        - counter-hunt: adversary may name its malicious binary like legitimate Dropbox executables and drop them on the target system. 
+          We can hunt for this if our EDR provides VERSIONINFO attributes for file operations events.
+      telemetry:
+        file_create:
+          EDR (minifilter)
+      rules:
+        - Channel:EDR AND EventType:(FileCreate OR FileRename) AND TargetFilename:("\\Dropbox.exe" OR "\\DropboxUpdate.exe")
+          AND NOT (FileOriginalFileName:"Dropbox.exe" AND FileDescription:"Dropbox" AND FileCompany:"Dropbox, Inc.")
+  quote: >
+    "the shortcut leverages a living-off-the-land binary (LOLBin) and technique to proxy the execution of BOOM.exe using the following hardcoded shortcut target value: 
+     C:\Windows\System32\rundll32.exe c:\windows\system32\advpack.dll,RegisterOCX BOOM.exe."
+  mitre_attack:
+    defense_evasion:
+      - T1218.011 - Signed Binary Proxy Execution - Rundll32
+    detection:
+      ideas: > 
+        - monitor Rundll32.exe execution with rarely used LOLBAS DLLs functions in command line.
+          Note: some functions will fire FPs, but they weren't excluded for obvious reasons.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine)
+      rules:
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\rundll32.exe" OR CommandLine:"rundll32 *") AND
+          CommandLine:(*LaunchINFSection* OR *RegisterOCX* OR *MiniDump* OR *OpenURL* OR *PrintHTML* OR *LaunchApplication* OR *InstallHinfSection* 
+          OR "*Control_RunDLL*" OR "*ShellExec_RunDLL*" OR *SetupInfObjectInstallAction* OR *FileProtocolHandler* OR *RouteTheCall*)
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\rundll32.exe" OR CommandLine:"rundll32 *" OR OriginalFileName:"rundll32.exe" OR Description:"Windows host process (Rundll32)")
+          AND CommandLine:(*LaunchINFSection* OR *RegisterOCX* OR *MiniDump* OR *OpenURL* OR *PrintHTML* OR *LaunchApplication* OR *InstallHinfSection* 
+          OR "*Control_RunDLL*" OR "*ShellExec_RunDLL*" OR *SetupInfObjectInstallAction* OR *FileProtocolHandler* OR *RouteTheCall*)
+      ideas: >
+        - to reduce possible FPs we can make previous rules more precise and enhance them with "bad" folders condition in command line.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine)
+      rules:
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\rundll32.exe" OR CommandLine:"rundll32 *") AND
+          CommandLine:(*LaunchINFSection* OR *RegisterOCX* OR *MiniDump* OR *OpenURL* OR *PrintHTML* OR *LaunchApplication* OR *InstallHinfSection* 
+          OR "*Control_RunDLL*" OR "*ShellExec_RunDLL*" OR *SetupInfObjectInstallAction* OR *FileProtocolHandler* OR *RouteTheCall*) 
+          AND CommandLine:("\\Users\\" OR "\\Temp\\" OR "\\ProgramData\\")
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\rundll32.exe" OR CommandLine:"rundll32 *" OR OriginalFileName:"rundll32.exe" OR Description:"Windows host process (Rundll32)")
+          AND CommandLine:(*LaunchINFSection* OR *RegisterOCX* OR *MiniDump* OR *OpenURL* OR *PrintHTML* OR *LaunchApplication* OR *InstallHinfSection* 
+          OR "*Control_RunDLL*" OR "*ShellExec_RunDLL*" OR *SetupInfObjectInstallAction* OR *FileProtocolHandler* OR *RouteTheCall*) 
+          AND CommandLine:("\\Users\\" OR "\\Temp\\" OR "\\ProgramData\\")
+      ideas: >
+        - rundll32 was started from LNK folder. The parent process in this case will be Explorer.exe, at least in most cases (depends on file manager). 
+          The rules below will catch such activity. FPs with Explorer.exe as parent are possible too, filter out them.
+          Note: different variations are possible with these rules, so play with them and find what works best for you. 
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine)
+      rules:
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\rundll32.exe" OR CommandLine:"rundll32 *") AND CreatorProcessName:"\\System32\\explorer.exe" AND 
+          CommandLine:(*LaunchINFSection* OR *RegisterOCX* OR *MiniDump* OR *OpenURL* OR *PrintHTML* OR *LaunchApplication* OR *InstallHinfSection* 
+          OR "*Control_RunDLL*" OR "*ShellExec_RunDLL*" OR *SetupInfObjectInstallAction* OR *FileProtocolHandler* OR *RouteTheCall*)
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\rundll32.exe" OR CommandLine:"rundll32 *" OR OriginalFileName:"rundll32.exe" OR Description:"Windows host process (Rundll32)")
+          AND ParentImage:"\\System32\\explorer.exe" AND CommandLine:(*LaunchINFSection* OR *RegisterOCX* OR *MiniDump* OR *OpenURL* OR *PrintHTML* OR *LaunchApplication* OR *InstallHinfSection* 
+          OR "*Control_RunDLL*" OR "*ShellExec_RunDLL*" OR *SetupInfObjectInstallAction* OR *FileProtocolHandler* OR *RouteTheCall*)
