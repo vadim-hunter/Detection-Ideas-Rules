@@ -19,4 +19,4 @@ The idea of this repository is to analyze public Threat Intelligence reports, in
 
 ### Threat Intelligence
 - Microsoft Threat Intelligence Center (MSTIC)
-  - Breaking down NOBELIUM’s latest early-stage toolset (9/17)
+  - Breaking down NOBELIUM’s latest early-stage toolset (11/19)
