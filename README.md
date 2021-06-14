@@ -7,7 +7,7 @@ The idea of this repository is to analyze public Threat Intelligence reports, in
 ### MITRE ATT&CK TTPs
 #### Persistence
 - TXXXX - Active Directory Object ACL manipulation
-  - TXXXX.001 - AdminSDHolder (4/12)
+  - TXXXX.001 - AdminSDHolder (4/13)
 #### Defense Evasion
 - T1218 - Signed Binary Proxy Execution
   - T1218.003 - CSMTP (4/7)
