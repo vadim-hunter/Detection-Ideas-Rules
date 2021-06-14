@@ -36,8 +36,11 @@ procedures:
       telemetry:
         ad_object_modification:
           - Windows EID 5136
+        ad_object_operation:
+          - Windows EID 4662
       rules:
         - Channel:Windows-Security AND EventID:5136 AND ObjectDN:*AdminSDHolder* AND AttributeLDAPDisplayName:*nTSecurityDescriptor*
+        - Channel:Windows-Security AND EventID:4662 AND ObjectName:*AdminSDHolder* AND OperationAccesses:"*WRITE_DAC*"
       ideas: >
         - monitor specific Powershell cmdlets execution changing AdminSDHolder ACL.
       telemetry:
