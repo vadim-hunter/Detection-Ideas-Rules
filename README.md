@@ -12,7 +12,7 @@ The idea of this repository is to analyze public Threat Intelligence reports, in
 - T1070 - Indicator Removal on Host
   - T1070.001 - Clear Windows Event Logs (7/12/31) 
 - T1218 - Signed Binary Proxy Execution
-  - T1218.003 - CSMTP (4/7)
+  - T1218.003 - CSMTP (2/4/7)
 - T1564 - Hide Artifacts
   - T1564.001 - Hidden Files and Directories (2/4)
 #### Credential Access
