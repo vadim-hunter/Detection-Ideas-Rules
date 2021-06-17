@@ -1,0 +1,302 @@
+tactics:
+  - TA0005 - Defense Evasion
+techniques:
+  - T1070 - Indicator Removal on Host
+subtechniques:
+  - T1070.001 - Clear Windows Event Logs
+description: >
+  Adversaries may clear Windows Event Logs to hide the activity of an intrusion. Windows Event Logs are a record of a computer's alerts and notifications.
+links:
+  - https://attack.mitre.org/techniques/T1070/001/ 
+procedures:
+  procedure T1070.001.001:
+    description: >
+      Adversary may abuse standard wevtutil utility to clear Windows event logs.
+    emulation:
+      tools:
+        - wevtutil.exe
+      cmd:
+        - wevtutil clear-log Security
+        - wevtutil cl Microsoft-Windows-PowerShell/Operational
+        - wevtutil cl System
+    detection:
+      ideas: >
+        - monitor wevtutil.exe process creation with specific command line arguments.
+          Note: you can narrow down rules conditions with event journals important for you.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\wevtutil.exe" OR ProcessCommandLine:"*wevtutil *") 
+          AND ProcessCommandLine:("* cl *" OR "* clear-log *")
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\wevtutil.exe" OR CommandLine:"*wevtutil *" OR OriginalFileName:"wevtutil.exe" 
+          OR Description:"Eventing Command Line Utility") AND CommandLine:("* cl *" OR "* clear-log *")
+  procedure T1070.001.002:
+    description: >
+      Adversary may abuse Powershell to clear Windows event logs.
+    emulation:
+      tools:
+        - powershell.exe
+        - pwsh.exe
+      cmd:
+        - powershell -command "Clear-EventLog 'System'"
+        - pwsh.exe -c "Clear-EventLog 'Application'"
+      powershell:
+        - Clear-EventLog "System"
+        - Clear-EventLog "Microsoft-Windows-PowerShell/Operational"
+        - pwsh Clear-EventLog "Application"
+        - Get-WmiObject -Class Win32_NTEventLogFile | Where-Object {$_.LogFileName -eq 'Application'} ... ClearEventLog()
+        - gwmi -Class Win32_NTEventLogFile | Where-Object {$_.LogFileName -eq 'Application'} ... ClearEventLog()
+    detection:
+      ideas: >
+        - monitor powershell.exe process creation with specific command line arguments.
+        - monitor specific Powershell cmdlets/aliases execution which may clear event logs.
+          Note: you can narrow down rules conditions with event journals important for you.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+        script_execution:
+          - Windows-Powershell EID 400
+          - Windows-PowerShell-Operational EID 4104 (Verbose)
+          - EDR (Microsoft-Windows-PowerShell ETW)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\powershell.exe" OR "\\pwsh.exe") OR ProcessCommandLine:("*powershell *" OR "*pwsh *") 
+          AND ProcessCommandLine:"*Clear-EventLog*"
+        - Channel:Sysmon AND EventID:1 AND (Image:("\\powershell.exe" OR "\\pwsh.exe") OR CommandLine:("*powershell *" OR "*pwsh *") OR OriginalFileName:"PowerShell.EXE" 
+          OR Description:"Windows PowerShell") AND CommandLine:"*Clear-EventLog*"
+        - Channel:Windows-Powershell AND EventID:400 AND HostApplication:("*powershell *" OR "*pwsh *") AND HostApplication:"*Clear-EventLog*"
+        - Channel:Windows-Powershell-Operational AND EventID:4104 AND (ScriptBlockText:"*Clear-EventLog*" 
+          OR (ScriptBlockText:("*Get-WmiObject*" OR "*gwmi*") AND ScriptBlockText:"*Win32_NTEventLogFile*" AND ScriptBlockText:*ClearEventLog*))
+  procedure T1070.001.003:
+    description: >
+      Adversary may abuse WMI command line utility (WMIC) to clear Windows event logs.
+    emulation:
+      tools:
+        - wmic.exe
+      cmd:
+        - wmic nteventlog where "Logfilename = 'Security'" Call ClearEventLog
+    detection:
+      ideas: >
+        - monitor wmic.exe process creation with specific command line arguments.
+          Note: you can narrow down rules conditions with event journals important for you.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      rules:
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\wbem\\WMIC.exe" OR ProcessCommandLine:"*wmic *") AND ProcessCommandLine:*nteventlog* 
+          AND ProcessCommandLine:*ClearEventLog*
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\wbem\\WMIC.exe" OR CommandLine:"*wmic *" OR OriginalFileName:"wmic.exe" OR Description:"WMI Commandline Utility")
+          AND CommandLine:*nteventlog* AND CommandLine:*ClearEventLog*
+  procedure T1070.001.004:
+    description: >
+      Adversary may abuse standard wevtutil utility to change Windows event logs location/retention period/size settings. 
+      As a result events may disappear from event log journals either partially or fully.
+    emulation:
+      tools:
+        - wevtutil.exe
+      cmd:
+        - wevtutil sl Security /lfn:c:\Windows\System32\winevt\TraceFormat\cache.tmp
+        - wevtutil set-log Application /lfn:c:\Windows\System32\winevt\TraceFormat\cache.tmp
+        - wevtutil set-log Application /rt:true
+        - wevtutil sl Security /rt:false
+        - wevtutil sl Application /ms:1048576
+        - wevtutil set-log Security /maxsize:1048576
+        - wevtutil sl /c:evil_config.xml
+    detection:
+      ideas: >
+        - monitor wevtutil.exe process creation with specific command line arguments.
+          Note: you can narrow down rules conditions with event journals important for you.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\wevtutil.exe" OR ProcessCommandLine:"*wevtutil *") 
+          AND ProcessCommandLine:("* sl *" OR "* set-log *")
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\wevtutil.exe" OR CommandLine:"*wevtutil *" OR OriginalFileName:"wevtutil.exe" 
+          OR Description:"Eventing Command Line Utility") AND CommandLine:("* sl *" OR "* set-log *")
+      ideas: >
+        - monitor changing EventLog service settings in registry.
+          Note: you can narrow down rules conditions with event journals registry keys important for you.
+      telemetry:
+        registry_value_set:
+          - Windows EID 4657 (SACL)
+          - Sysmon EID 13
+          - EDR (CmRegisterCallback/Ex, Registry API)
+      rules: >
+        - Channel:Windows-Security AND EventID:4657 AND ObjectName:"\\CurrentControlSet\\Services\\EventLog" AND ObjectValueName:(*File* OR *MaxSize* OR *Retention*)
+        - Channel:Sysmon AND EventID:13 AND TargetObject:"\\CurrentControlSet\\Services\\EventLog" AND TargetObject:(*File* OR *MaxSize* OR *Retention*)
+  procedure T1070.001.005:
+    description: >
+      Adversary may abuse Powershell to change Windows event logs location/retention period/size settings. 
+      As a result events may disappear from event log journals either partially or fully.
+    emulation:
+      tools:
+        - Set-ItemProperty, Limit-EventLog, Get-WmiObject cmdlets/aliases
+        - powershell.exe
+        - pwsh.exe
+      cmd:
+        - pwsh -c "sp -Path 'HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Security' -Name 'File' -Value 'F:\EventLogs\Security\cache.tmp'"
+        - powershell -command "Limit-EventLog -OverflowAction OverwriteAsNeeded -LogName 'Security'"
+        - pwsh -c "Limit-EventLog -OverflowAction OverwriteOlder -LogName 'Security'"
+        - powershell -command "Limit-EventLog -LogName Security -MaximumSize 30MB"
+        - pwsh -c "Limit-EventLog -LogName "Windows PowerShell" -MaximumSize 1KB"
+      powershell:
+        - Set-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Application" -Name "File" -Value "F:\EventLogs\Application\cache.tmp"
+        - sp -Path "HKLM:\SYSTEM\CurrentControlSet\Services\EventLog\Security" -Name "File" -Value "F:\EventLogs\Security\cache.tmp"
+        - Limit-EventLog -LogName Security -RetentionDays 7
+        - Limit-EventLog -OverflowAction OverwriteOlder -LogName 'Security'
+        - $SecurityLogs = Get-WmiObject Win32_NTEventLogFile | where {$_.LogFileName -like "Security"} ... $SecurityLogs.MaxFileSize
+        - Limit-EventLog -LogName Security -MaximumSize 30MB
+        - Limit-EventLog -LogName "Windows PowerShell" -MaximumSize 1KB
+    detection:
+      ideas: >
+        - monitor specific Powershell cmdlets/aliases execution aimed at changing Windows event logs location/retention period/size settings.
+          Note: you can narrow down rules conditions with event journals registry keys important for you.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+        script_execution:
+          - Windows-Powershell EID 400
+          - Windows-PowerShell-Operational EID 4104 (Verbose)
+          - EDR (Microsoft-Windows-PowerShell ETW)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\powershell.exe" OR "\\pwsh.exe") OR ProcessCommandLine:("*powershell *" OR "*pwsh *") 
+          AND ProcessCommandLine:("*Set-ItemProperty*" OR "* sp *") AND ProcessCommandLine:"\\Services\\EventLog\\"
+        - Channel:Sysmon AND EventID:1 AND (Image:("\\powershell.exe" OR "\\pwsh.exe") OR CommandLine:("*powershell *" OR "*pwsh *") OR OriginalFileName:"PowerShell.EXE" 
+          OR Description:"Windows PowerShell") AND CommandLine:("*Set-ItemProperty*" OR "* sp *") AND CommandLine:"\\Services\\EventLog\\"
+        - Channel:Windows-Powershell AND EventID:400 AND HostApplication:("*powershell *" OR "*pwsh *") AND HostApplication:("*Set-ItemProperty*" OR "* sp *") 
+          AND HostApplication:"\\Services\\EventLog\\"
+        - Channel:Windows-Powershell-Operational AND EventID:4104 AND (ScriptBlockText:"*Limit-EventLog*" 
+          OR (ScriptBlockText:("*Get-WmiObject*" OR "*gwmi*") AND ScriptBlockText:"*Win32_NTEventLogFile*" AND ScriptBlockText:*MaxFileSize*))
+  procedure T1070.001.006:
+    description: >
+      Adversary may abuse Powershell to delete an event log or unregister an event source. 
+    emulation:
+      tools:
+        - powershell.exe
+        - pwsh.exe
+      cmd:
+        - powershell -command "Remove-EventLog -LogName 'Security'"
+        - pwsh -c "Remove-EventLog -LogName 'System'"
+      powershell:
+        - Remove-EventLog -LogName "Security"
+    detection:
+      ideas: >
+        - monitor specific Powershell cmdlets execution aimed at removing Windows event logs or unregistering event sources. 
+          Note: you can narrow down rules conditions with event journals important for you.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+        script_execution:
+          - Windows-Powershell EID 400
+          - Windows-PowerShell-Operational EID 4104 (Verbose)
+          - EDR (Microsoft-Windows-PowerShell ETW)
+      rules:
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\powershell.exe" OR "\\pwsh.exe") OR ProcessCommandLine:("*powershell *" OR "*pwsh *") 
+          AND ProcessCommandLine:"*Remove-EventLog*"
+        - Channel:Sysmon AND EventID:1 AND (Image:("\\powershell.exe" OR "\\pwsh.exe") OR CommandLine:("*powershell *" OR "*pwsh *") OR OriginalFileName:"PowerShell.EXE" 
+          OR Description:"Windows PowerShell") AND CommandLine:"*Remove-EventLog*"
+        - Channel:Windows-Powershell AND EventID:400 AND HostApplication:("*powershell *" OR "*pwsh *") AND HostApplication:"*Remove-EventLog*"
+        - Channel:Windows-Powershell-Operational AND EventID:4104 AND ScriptBlockText:"*Remove-EventLog*"
+  procedure T1070.001.007:
+    description: >
+      Adversary may delete event log files located on the file system using cmd/powershell/wmic.
+    emulation:
+      tools:
+        - wmic.exe
+        - cmd.exe
+        - powershell.exe
+      cmd:
+        - del /f /q c:\Windows\System32\winevt\logs\MySecurityLogs.evtx
+        - cmd /c del /f /q c:\Windows\System32\winevt\logs\MySecurityLogs.evtx
+        - powershell -command "Remove-Item -Path c:\Windows\System32\winevt\logs\MySecurityLogs.evtx -Force"
+        - pwsh -c "rd -Path c:\Windows\System32\winevt\logs\MySecurityLogs.evtx -Force"
+      powershell:
+        - Remove-Item -Path c:\Windows\System32\winevt\logs\MySecurityLogs.evtx -Force
+        - rd -Path c:\Windows\System32\winevt\logs\MySecurityLogs.evtx -Force
+        - ri -Path c:\Windows\System32\winevt\logs\MySecurityLogs.evtx -Force
+        - rm -Path c:\Windows\System32\winevt\logs\MySecurityLogs.evtx -Force
+        - rmdir -Path c:\Windows\System32\winevt\logs -Force
+      wmic:
+        - WMIC path cim_datafile WHERE "path='c:\\Windows\\System32\\winevt\\logs\\' AND  Extension ='evtx'" delete
+    detection:
+      ideas: >
+        - monitor deletion of event log files located in "\Windows\System32\winevt\logs\" folder using specific cmd.exe command lines.
+          Note: you won't be able to detect "del" command if it used in interactive cmd.exe mode.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      rules:
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\System32\\cmd.exe" OR ProcessCommandLine:"*cmd /c*") AND ProcessCommandLine:"* del *" 
+          AND ProcessCommandLine:"\\Windows\\System32\\winevt\\logs\\"
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\System32\\cmd.exe" OR CommandLine:"*cmd /c*" OR OriginalFileName:"Cmd.Exe" OR Description:"Windows Command Processor") 
+          AND CommandLine:"* del *" AND CommandLine:"\\Windows\\System32\\winevt\\logs\\"
+      ideas: >
+        - monitor deletion of event log files located in "\Windows\System32\winevt\logs\" folder using specific Powershell cmdlets.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+        script_execution:
+          - Windows-Powershell EID 400
+          - Windows-PowerShell-Operational EID 4104 (Verbose)
+          - EDR (Microsoft-Windows-PowerShell ETW)
+      rules:
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\powershell.exe" OR "\\pwsh.exe") OR ProcessCommandLine:("*powershell *" OR "*pwsh *") 
+          AND ProcessCommandLine:("*Remove-Item*" OR "* rd *" OR "* ri *" OR "* rm *" OR "* rmdir *") AND ProcessCommandLine:"\\Windows\\System32\\winevt\\logs\\"
+        - Channel:Sysmon AND EventID:1 AND (Image:("\\powershell.exe" OR "\\pwsh.exe") OR CommandLine:("*powershell *" OR "*pwsh *") OR OriginalFileName:"PowerShell.EXE" 
+          OR Description:"Windows PowerShell") AND CommandLine:("*Remove-Item*" OR "* rd *" OR "* ri *" OR "* rm *" OR "* rmdir *") AND CommandLine:"\\Windows\\System32\\winevt\\logs\\"
+        - Channel:Windows-Powershell AND EventID:400 AND HostApplication:("*powershell *" OR "*pwsh *") AND HostApplication:("*Remove-Item*" OR "* rd *" OR "* ri *" OR "* rm *" OR "* rmdir *") 
+          AND HostApplication:"\\Windows\\System32\\winevt\\logs\\"
+        - Channel:Windows-Powershell-Operational AND EventID:4104 AND ScriptBlockText:("*Remove-Item*" OR "* rd *" OR "* ri *" OR "* rm *" OR "* rmdir *") 
+          AND ScriptBlockText:"\\Windows\\System32\\winevt\\logs\\"
+      ideas: >
+        - monitor deletion of event log files located in "\Windows\System32\winevt\logs\" folder using specific WMIC commands.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      rules:
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\wbem\\WMIC.exe" OR ProcessCommandLine:"*wmic *") AND ProcessCommandLine:"\\Windows\\System32\\winevt\\logs\\" 
+          AND ProcessCommandLine:"* delete *"
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\wbem\\WMIC.exe" OR CommandLine:"*wmic *" OR OriginalFileName:"wmic.exe" OR Description:"WMI Commandline Utility")
+          AND CommandLine:"\\Windows\\System32\\winevt\\logs\\" AND CommandLine:"* delete *"
+      ideas: >
+        - monitor deletion of event log files located in "\Windows\System32\winevt\logs\" folder using FileDelete events.
+      telemetry:
+        object_access:
+          - Windows EID 4663 (SACL)
+        file_delete:
+          - Sysmon EID 23
+          - EDR (minifilter)
+      rules:
+        - Channel:Windows-Security AND EventID:4663 AND ObjectName:"\\Windows\\System32\\winevt\\logs\\" AND Accesses:"*DELETE*"
+        - Channel:Sysmon AND EventID:23 AND TargetFilename:"\\Windows\\System32\\winevt\\logs\\"
+  procedure T1070.001.XXX: 
+    description: >
+      - execution of procedures T1070.001-006 and some unknown procedures (which we don't know yet) will/should generate specific events in System and Security journals.
+    detection:
+      ideas: >
+        - monitor specific event log clearing events in System and Security journals.
+      telemetry:
+        clear_audit_log:
+          - Windows Security EID 1102
+          - Windows System EID 104
+      rules:
+        - (Channel:Windows-Security AND EventID:1102) OR (Channel:Windows-System AND EventID:104)
