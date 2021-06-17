@@ -3,7 +3,7 @@ Every day a number of Threat Intelligence reports come into the world. Prepared 
 
 The idea of this repository is to analyze public Threat Intelligence reports, interesting TTPs, tools and various offensive tradecraft to generate ready to use detection ideas and rules implementations, which can be used by threat hunters and security monitoring teams.
 
-*Note: in brackets (procedures/ideas/rules) or just (ideas/rules).
+Note: in brackets (procedures/ideas/rules) or just (ideas/rules).
 
 ## Summary
 ### MITRE ATT&CK TTPs
