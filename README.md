@@ -27,3 +27,6 @@ Note: in brackets (procedures/ideas/rules) or just (ideas/rules).
 ### Threat Intelligence
 - Microsoft Threat Intelligence Center (MSTIC)
   - Breaking down NOBELIUM’s latest early-stage toolset (11/19)
+
+### Tools
+- Invoke-Phant0m (4/4)
