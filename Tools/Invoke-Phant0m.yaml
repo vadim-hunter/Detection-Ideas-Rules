@@ -1,1 +1,65 @@
-# TBD
+tool:
+  - Invoke-Phant0m
+description: >
+  This script walks thread stacks of Event Log Service process (speсific svchost.exe) and identify Event Log Threads to kill Event Log Service Threads. 
+authors:
+  - Halil Dalabasmaz
+links:
+  - https://github.com/hlldz/Invoke-Phant0m
+  - https://artofpwn.com/2017/06/05/phant0m-killing-windows-event-log.html
+analyzed_by:
+  - Vadim Khrykov (@BlackMatter23)
+techniques:
+  mitre_attack:
+    discovery:
+      - T1057 - Process Discovery
+  description: >
+    Invoke-Phant0m discovers Eventlog service process id (PID) using "Get-WmiObject -Class win32_service" Powershell commandlet 
+    to get process handle. 
+  detection:
+    ideas: >
+      - monitor specific Windows Eventlog service process PID discovery commandlets.
+        Note: generic detect, only available in verbose Powershell logging level, which is very noisy.
+    telemetry:
+      script_execution:
+        - Windows-Powershell-Operational EID 4104 (Verbose)
+        - EDR (Microsoft-Windows-PowerShell ETW)
+    rules:
+      - Channel:Windows-Powershell-Operational AND EventID:4104 AND ScriptBlockText:("*Get-WmiObject*" OR "* gwmi *") AND ScriptBlockText:"*win32_service*" 
+        AND ScriptBlockText:*eventlog*
+    ideas: >
+      - monitor specific WMI commands execution which discover Windows Eventlog service process PID.
+    telemetry:
+      wmi_execution:
+        - EDR (Microsoft-Windows-WMI-Activity ETW)
+    rules:
+      - Channel:EDR AND EventType:WMIExecution AND Image:"\\powershell.exe" AND WMICommand:"*win32_service*" AND WMICommand:*eventlog*
+  mitre_attack:
+    defense_evasion:
+      - T1562.002 - Impair Defenses - Disable Windows Event Logging
+    execution:
+      - T1059.001 - Command and Scripting Interpreter - PowerShell
+  description: >
+    Invoke-Phant0m obtains svchost.exe process handle with 0x1F0FFF access mask, finds every thread mapped to *evt* (wevtsvc.dll) file image
+    opens it with 0x0001 access mask and terminates it.
+  detection:
+    ideas: >
+      - monitor suspicious svchost.exe process access attempts initiated by Powershell.exe with *UNKNOWN* module in calltrace.
+        Note: generic detect, should catch not only Invoke-Phant0m.
+    telemetry:
+      process_access:
+        - Sysmon EID 10
+        - EDR (ObRegisterCallbacks)
+    rules:
+      - Channel:Sysmon AND EventID:10 AND TargetImage:("\\Windows\\System32\\svchost.exe" OR "\\Windows\\SysWOW64\\svchost.exe") 
+        AND SourceImage:"\\powershell.exe" AND CallTrace:*UNKNOWN*
+    ideas: >
+      - monitor specific powershell cmdlets associated with Invoke-Phant0m (scriptblock text Warning level, enabled by default).
+    telemetry:
+      script_execution:
+        - Windows-Powershell-Operational EID 4104 (Warning)
+        - EDR (Microsoft-Windows-PowerShell ETW)
+    rules:
+      - Channel:Windows-Powershell-Operational AND EventID:4104 AND (ScriptBlockText:"*Invoke-Phant0m*" 
+        OR (ScriptBlockText:"*Dbghelp::SymLoadModuleEx*" AND ScriptBlockText:"*MappedFile*" AND ScriptBlockText:*OpenThread* 
+        AND ScriptBlockText:(*TerminateThread* OR *SuspendThread*)))
