@@ -120,7 +120,7 @@ analysis:
       rules:
         - Channel:Sysmon AND EventID:22 AND Image:("\\regsvr32.exe")
   quote: >
-    - "Once IcedID was downloaded to the host, the malware was executed using rundll32.exe" - ask for parent ???
+    - "Once IcedID was downloaded to the host, the malware was executed using rundll32.exe"
   mitre_attack:
     defense_evasion:
       - T1218.011 - Signed Binary Proxy Execution - Rundll32
