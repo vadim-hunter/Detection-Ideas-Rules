@@ -135,10 +135,10 @@ analysis:
           - EDR (PsSetCreateProcessNotifyRoutine/Ex)
       rules: >
         - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\rundll32.exe" OR CommandLine:"rundll32 *") AND
-          CommandLine.keyword:(/.*\.dat[\"\'\,].*/)
+          ProcessCommandLine.keyword:(/.*\.dat[\"\'\,].*/)
         - Channel:Sysmon AND EventID:1 AND (Image:"\\rundll32.exe" OR CommandLine:"rundll32 *" OR OriginalFileName:"rundll32.exe" OR Description:"Windows host process (Rundll32)")
           AND CommandLine.keyword:(/.*\.dat[\"\'\,].*/)
         - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\rundll32.exe" OR CommandLine:"rundll32 *") AND
-          CommandLine.keyword:(/.*\.dat[\"\'\,].*/) AND CommandLine:("\\Users\\" OR "\\Temp\\" OR "\\ProgramData\\")
+          ProcessCommandLine.keyword:(/.*\.dat[\"\'\,].*/) AND ProcessCommandLine:("\\Users\\" OR "\\Temp\\" OR "\\ProgramData\\")
         - Channel:Sysmon AND EventID:1 AND (Image:"\\rundll32.exe" OR CommandLine:"rundll32 *" OR OriginalFileName:"rundll32.exe" OR Description:"Windows host process (Rundll32)")
           AND CommandLine.keyword:(/.*\.dat[\"\'\,].*/) AND CommandLine:("\\Users\\" OR "\\Temp\\" OR "\\ProgramData\\")
