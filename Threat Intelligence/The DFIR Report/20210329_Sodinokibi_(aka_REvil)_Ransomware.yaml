@@ -126,7 +126,7 @@ analysis:
       - T1218.011 - Signed Binary Proxy Execution - Rundll32
     detection:
       ideas: >
-        - monitor rundll32 execution without .dat file extension in command-line.
+        - monitor rundll32 execution with .dat file extension in command-line.
           enchanced version: rundll32 execution with .dat file extension and "bad" folders in command-line.
       process_create:
         - Windows EID 4688
