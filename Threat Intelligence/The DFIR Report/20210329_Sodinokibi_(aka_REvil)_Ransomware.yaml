@@ -1,0 +1,143 @@
+source_type: "Threat Intelligence Report"
+report:
+  title: "Sodinokibi (aka REvil) Ransomware"
+  vendor: "The DFIR Report"
+  published: "29.03.2021"
+  link:
+    - https://thedfirreport.com/2021/03/29/sodinokibi-aka-revil-ransomware/
+  analyzed_by: Vadim Khrykov (@BlackMatter23)
+  threat:
+    name:
+      - REvil
+    aliases:
+      - Sodinokibi
+      - GOLD SOUTHFIELD
+      - G0115
+    attribution:
+      - Worldwide
+    tools:
+      - IceID (Bokbot)
+      - Cobalt Strike
+      - Bloodhound
+analysis:
+  quote: >
+    - "Initial execution of the document writes a file to... The Excel file called wmic to execute the file with regsrv32"
+  mitre_attack:
+    execution:
+      - T1204.002 - User Execution - Malicious File
+      - T1047 - Windows Management Instrumentation
+    defense_evasion:
+      - T1218.010 - Signed Binary Proxy Execution - Regsvr32
+    detection:
+      ideas: >
+        - monitor Office applications spawning WMI command-line (WMIC.exe) utility.
+          Note: add more office applications to the rules logic of your choice.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\wbem\\WMIC.exe" OR ProcessCommandLine:"*wmic *") 
+          AND CreatorProcessName:("\\winword.exe" OR "\\excel.exe" OR "\\powerpnt.exe")
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\wbem\\WMIC.exe" OR CommandLine:"*wmic *" OR OriginalFileName:"wmic.exe" OR Description:"WMI Commandline Utility")
+          AND ParentImage:("\\winword.exe" OR "\\excel.exe" OR "\\powerpnt.exe")
+      ideas: >
+        - monitor WMI "Win32_Process::Create" command execution by Office applications processes.
+          Note: add more office applications to the rule logic of your choice.
+      telemetry:
+        wmi_execution:
+          - EDR (Microsoft-Windows-WMI-Activity ETW)
+      rules: >
+        - Channel:EDR AND EventType:WMIExecution AND Image:("\\winword.exe" OR "\\excel.exe" OR "\\powerpnt.exe") AND WMICommand:"*Win32_Process\:\:Create*"
+      ideas: >
+        - Excel called wmic to finally proxy execute regsvr32 with the payload. An attacker wanted to break suspicious parent-child chain (Office app spawns LOLBin).
+          But we have command-line in the event which allow us to "restore" this suspicous parent-child chain and detect it.
+          Monitor process creation with "wmic process call create" and LOLBins in command-line with parent Office application processes.
+          Note: add more LOLBins to the rules logic of your choice.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\wbem\\WMIC.exe" OR ProcessCommandLine:"*wmic *") AND ProcessCommandLine:*process* AND ProcessCommandLine:*call* AND ProcessCommandLine:*create* 
+          AND ProcessCommandLine:(*regsvr32* OR *rundll32* OR *msiexec* OR *mshta* OR *verclsid*) AND CreatorProcessName:("\\winword.exe" OR "\\excel.exe" OR "\\powerpnt.exe")
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\wbem\\WMIC.exe" OR CommandLine:"*wmic *" OR OriginalFileName:"wmic.exe" OR Description:"WMI Commandline Utility") 
+          AND CommandLine:*process* AND CommandLine:*call* AND CommandLine:*create* AND CommandLine:(*regsvr32* OR *rundll32* OR *msiexec* OR *mshta* OR *verclsid*)
+          AND ParentImage:("\\winword.exe" OR "\\excel.exe" OR "\\powerpnt.exe")
+      ideas: >
+        - monitor LOLBins process creations with Wmiprvse parent process.
+          Note: add more LOLBins to the rules logic of your choice. FPs are possible here, but some LOLBins weren't excluded for obvious reasons.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND NewProcessName:("\\regsvr32.exe" OR "\\rundll32.exe" OR "\\msiexec.exe" OR "\\mshta.exe" OR "\\verclsid.exe") 
+          AND CreatorProcessName:("\\wbem\\WmiPrvSE.exe")
+        - Channel:Sysmon AND EventID:1 AND Image:("\\regsvr32.exe" OR "\\rundll32.exe" OR "\\msiexec.exe" OR "\\mshta.exe" OR "\\verclsid.exe") 
+          AND ParentImage:("\\wbem\\WmiPrvSE.exe")
+      ideas: >
+        - monitor executable and script files creation by Office applications, use files extensions and magic bytes.
+          Note: add more files extensions/magic bytes to the rules logic of your choice.
+      telemetry:
+        file_create:
+          - Sysmon EID 11
+          - EDR (minifilter)
+        file_rename:
+          - EDR (minifilter)
+      rules: >
+        - Channel:Sysmon AND EventID:11 AND Image:("\\winword.exe" OR "\\excel.exe" OR "\\powerpnt.exe") 
+          AND TargetFilename:(*.exe OR *.dll OR *.ocx OR *.com OR *.ps1 OR *.vbs OR *.sys OR *.bat OR *.scr OR *.proj)
+        - Channel:EDR AND EventType:(FileCreate OR FileRename) AND Image:("\\winword.exe" OR "\\excel.exe" OR "\\powerpnt.exe") 
+          AND (Filename:(*.exe OR *.dll OR *.ocx OR *.com OR *.ps1 OR *.vbs OR *.sys OR *.bat OR *.scr OR *.proj) OR FileMagicBytes:"4D5A*")
+  quote: >
+    - "This (regsvr32 -s C:\\Users\\Public\\microsoft.security) then made a network request to download a file from this URL"
+  mitre_attack:
+    defense_evasion:
+      - T1218.010 - Signed Binary Proxy Execution - Regsvr32
+    detection:
+      ideas: >
+        - monitor outbound network connections initiated by Regsvr32.exe.
+          Note: you may also check hypothesis for local-to-local connections and add other LOLBins of your choice.
+      telemetry:
+        network_connection:
+          - Windows EID 5156
+          - Sysmon EID 3
+          - EDR (WFP)
+      rules:
+        - Channel:Windows-Security AND EventID:5156 AND Direction:Outbound AND ApplicationName:("\\regsvr32.exe") AND DestinationAddress is Remote
+        - Channel:Sysmon AND EventID:3 AND Initiated:true AND Image:("\\regsvr32.exe") AND DestinationIp is Remote
+      ideas: >
+        - monitor DNS queries intiated by Regsvr32 process.
+          Note: you may also add other LOLBins of your choice.
+      telemetry:
+        dns_query:
+          - Sysmon EID 22
+          - EDR (Microsoft-Windows-DNS-Client ETW)
+      rules:
+        - Channel:Sysmon AND EventID:22 AND Image:("\\regsvr32.exe")
+  quote: >
+    - "Once IcedID was downloaded to the host, the malware was executed using rundll32.exe" - ask for parent ???
+  mitre_attack:
+    defense_evasion:
+      - T1218.011 - Signed Binary Proxy Execution - Rundll32
+    detection:
+      ideas: >
+        - monitor rundll32 execution without .dat file extension in command-line.
+          enchanced version: rundll32 execution with .dat file extension and "bad" folders in command-line.
+      process_create:
+        - Windows EID 4688
+        - Sysmon EID 1
+        - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\rundll32.exe" OR CommandLine:"rundll32 *") AND
+          CommandLine.keyword:(/.*\.dat[\"\'\,].*/)
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\rundll32.exe" OR CommandLine:"rundll32 *" OR OriginalFileName:"rundll32.exe" OR Description:"Windows host process (Rundll32)")
+          AND CommandLine.keyword:(/.*\.dat[\"\'\,].*/)
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\rundll32.exe" OR CommandLine:"rundll32 *") AND
+          CommandLine.keyword:(/.*\.dat[\"\'\,].*/) AND CommandLine:("\\Users\\" OR "\\Temp\\" OR "\\ProgramData\\")
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\rundll32.exe" OR CommandLine:"rundll32 *" OR OriginalFileName:"rundll32.exe" OR Description:"Windows host process (Rundll32)")
+          AND CommandLine.keyword:(/.*\.dat[\"\'\,].*/) AND CommandLine:("\\Users\\" OR "\\Temp\\" OR "\\ProgramData\\")
