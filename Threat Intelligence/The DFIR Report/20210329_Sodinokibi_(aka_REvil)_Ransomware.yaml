@@ -128,10 +128,11 @@ analysis:
       ideas: >
         - monitor rundll32 execution with .dat file extension in command-line.
           enchanced version: rundll32 execution with .dat file extension and "bad" folders in command-line.
-      process_create:
-        - Windows EID 4688
-        - Sysmon EID 1
-        - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
       rules: >
         - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\rundll32.exe" OR CommandLine:"rundll32 *") AND
           CommandLine.keyword:(/.*\.dat[\"\'\,].*/)
