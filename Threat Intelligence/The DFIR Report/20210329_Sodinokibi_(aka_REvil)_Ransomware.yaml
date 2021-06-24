@@ -134,7 +134,7 @@ analysis:
           - Sysmon EID 1
           - EDR (PsSetCreateProcessNotifyRoutine/Ex)
       rules: >
-        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\rundll32.exe" OR CommandLine:"rundll32 *") AND
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\rundll32.exe" OR ProcessCommandLine:"rundll32 *") AND
           ProcessCommandLine.keyword:(/.*\.dat[\"\'\,].*/)
         - Channel:Sysmon AND EventID:1 AND (Image:"\\rundll32.exe" OR CommandLine:"rundll32 *" OR OriginalFileName:"rundll32.exe" OR Description:"Windows host process (Rundll32)")
           AND CommandLine.keyword:(/.*\.dat[\"\'\,].*/)
