@@ -28,7 +28,7 @@ Note: in brackets (procedures/ideas/rules) or just (ideas/rules).
 - Microsoft Threat Intelligence Center (MSTIC)
   - Breaking down NOBELIUM’s latest early-stage toolset (11/19)
 - The DFIR Report
-  - Sodinokibi (aka REvil) Ransomware (8/16)
+  - Sodinokibi (aka REvil) Ransomware (9/18)
 
 ### Tools
 - Invoke-Phant0m (4/4)
