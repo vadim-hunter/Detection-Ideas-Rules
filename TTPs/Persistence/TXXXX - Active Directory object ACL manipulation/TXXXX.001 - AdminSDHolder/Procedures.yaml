@@ -125,3 +125,12 @@ procedures:
           CommandLine:("Set-ItemProperty" OR "*sp *" OR "New-ItemProperty") AND CommandLine:"\\Services\\NTDS\\Parameters" AND CommandLine:*AdminSDProtectFrequency*
         - Channel:Powershell AND EventID:400 AND HostApplication:("Set-ItemProperty" OR "*sp *" OR "New-ItemProperty") AND HostApplication:"\\Services\\NTDS\\Parameters"
           AND HostApplication:*AdminSDProtectFrequency*
+      ideas: >
+        - monitor suspicious changes of AdminSDProtectFrequency registry value.
+      telemetry:
+        registry_value_set:
+          - Windows EID 4657 (SACL)
+          - Sysmon EID 13
+      rules: >
+        - Channel:Windows-Security AND EventID:4657 AND ObjectName:"\\CurrentControlSet\\Services\\NTDS\\Parameters" AND ObjectValueName:"AdminSDProtectFrequency"
+        - Channel:Sysmon AND EventID:13 AND TargetObject:"\\CurrentControlSet\\Services\\NTDS\\Parameters\\AdminSDProtectFrequency"
