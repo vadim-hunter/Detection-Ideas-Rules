@@ -131,6 +131,7 @@ procedures:
         registry_value_set:
           - Windows EID 4657 (SACL)
           - Sysmon EID 13
+          - EDR (CmRegisterCallback/Ex, Registry API)
       rules: >
         - Channel:Windows-Security AND EventID:4657 AND ObjectName:"\\CurrentControlSet\\Services\\NTDS\\Parameters" AND ObjectValueName:"AdminSDProtectFrequency"
         - Channel:Sysmon AND EventID:13 AND TargetObject:"\\CurrentControlSet\\Services\\NTDS\\Parameters\\AdminSDProtectFrequency"
