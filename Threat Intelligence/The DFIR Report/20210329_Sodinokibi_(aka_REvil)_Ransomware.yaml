@@ -67,6 +67,19 @@ analysis:
           AND CommandLine:*process* AND CommandLine:*call* AND CommandLine:*create* AND CommandLine:(*regsvr32* OR *rundll32* OR *msiexec* OR *mshta* OR *verclsid*)
           AND ParentImage:("\\winword.exe" OR "\\excel.exe" OR "\\powerpnt.exe")
       ideas: >
+        - monitor LOLBins process creations by Office applications.
+          Note: add more LOLBins and Office applications to the rules logic of your choice.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND NewProcessName:("\\regsvr32.exe" OR "\\rundll32.exe" OR "\\msiexec.exe" OR "\\mshta.exe" OR "\\verclsid.exe") 
+          AND CreatorProcessName:("\\winword.exe" OR "\\excel.exe" OR "\\powerpnt.exe")
+        - Channel:Sysmon AND EventID:1 AND Image:("\\regsvr32.exe" OR "\\rundll32.exe" OR "\\msiexec.exe" OR "\\mshta.exe" OR "\\verclsid.exe") 
+          AND ParentImage:("\\winword.exe" OR "\\excel.exe" OR "\\powerpnt.exe")
+      ideas: >
         - monitor LOLBins process creations with Wmiprvse parent process.
           Note: add more LOLBins to the rules logic of your choice. FPs are possible here, but some LOLBins weren't excluded for obvious reasons.
       telemetry:
