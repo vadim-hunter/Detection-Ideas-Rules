@@ -113,7 +113,8 @@ analysis:
       - T1218.010 - Signed Binary Proxy Execution - Regsvr32
     detection:
       ideas: >
-        - monitor outbound network connections initiated by Regsvr32.exe.
+        - MS Excel process initiated an external network connection, if we try to monitor such activity we may get a lot of FPs.
+          instead monitor outbound network connections initiated by Regsvr32.exe (not directly related to the report).
           Note: you may also check hypothesis for local-to-local connections and add other LOLBins of your choice.
       telemetry:
         network_connection:
