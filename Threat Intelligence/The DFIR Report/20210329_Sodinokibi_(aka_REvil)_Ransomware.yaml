@@ -142,8 +142,8 @@ analysis:
       ideas: >
         - monitor rundll32 execution with .dat file extension in command-line.
           enchanced version: rundll32 execution with .dat file extension and "bad" folders in command-line.
-          Note: add other untypical DLL files extension to the rules logic of your choice. Or you may change the logic opposite and left only typical extensions,
-          but prepare for heavy tuning in a real environment. 
+          Note: add other untypical DLL files extension to the rules logic of your choice. You may also invert the logic (only well-known extensions),
+          but be ready for heavy tuning in a real environment. 
       telemetry:
         process_create:
           - Windows EID 4688
