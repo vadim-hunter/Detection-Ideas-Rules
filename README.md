@@ -9,7 +9,7 @@ Note: in brackets (procedures/ideas/rules) or just (ideas/rules).
 ### MITRE ATT&CK TTPs
 #### Persistence
 - TXXXX - Active Directory Object ACL manipulation
-  - TXXXX.001 - AdminSDHolder (3/4/13)
+  - TXXXX.001 - AdminSDHolder (3/5/15)
 #### Defense Evasion
 - T1070 - Indicator Removal on Host
   - T1070.001 - Clear Windows Event Logs (7/12/31) 
