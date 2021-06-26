@@ -107,7 +107,7 @@ analysis:
         - Channel:EDR AND EventType:(FileCreate OR FileRename) AND Image:("\\winword.exe" OR "\\excel.exe" OR "\\powerpnt.exe") 
           AND (Filename:(*.exe OR *.dll OR *.ocx OR *.com OR *.ps1 OR *.vbs OR *.sys OR *.bat OR *.scr OR *.proj) OR FileMagicBytes:"4D5A*")
   quote: >
-    - "This (regsvr32 -s C:\\Users\\Public\\microsoft.security) then made a network request to download a file from this URL"
+    - "This (MS Excel) then made a network request to download a file from this URL"
   mitre_attack:
     defense_evasion:
       - T1218.010 - Signed Binary Proxy Execution - Regsvr32
