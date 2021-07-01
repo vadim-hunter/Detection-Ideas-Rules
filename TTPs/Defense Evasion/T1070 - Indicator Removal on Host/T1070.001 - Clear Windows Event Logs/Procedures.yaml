@@ -64,7 +64,7 @@ procedures:
           - Windows-PowerShell-Operational EID 4104 (Verbose)
           - EDR (Microsoft-Windows-PowerShell ETW)
       rules: >
-        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\powershell.exe" OR "\\pwsh.exe") OR ProcessCommandLine:("*powershell *" OR "*pwsh *") 
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\powershell.exe" OR "\\pwsh.exe") OR ProcessCommandLine:("*powershell *" OR "*pwsh *"))  
           AND ProcessCommandLine:"*Clear-EventLog*"
         - Channel:Sysmon AND EventID:1 AND (Image:("\\powershell.exe" OR "\\pwsh.exe") OR CommandLine:("*powershell *" OR "*pwsh *") OR OriginalFileName:"PowerShell.EXE" 
           OR Description:"Windows PowerShell") AND CommandLine:"*Clear-EventLog*"
