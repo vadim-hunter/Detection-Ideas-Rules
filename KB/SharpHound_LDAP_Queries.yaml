@@ -1,0 +1,235 @@
+description: 
+  "SharpHound collection methods and specific LDAP Queries"
+collection_methods:
+  method_name: "Container"
+    ldap_filter:
+      - (|(&(&(objectcategory=groupPolicyContainer)(flags=*))(name=*)(gpcfilesyspath=*))(objectcategory=organizationalUnit)(objectClass=domain))
+    ldap_attributes:
+      - samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership;ms-mcs-admpwdexpirationtime;gplink;gpoptions;name;displayname
+      
+  method_name: "Group"
+    ldap_filter:
+      - (|(samaccounttype=268435456)(samaccounttype=268435457)(samaccounttype=536870912)(samaccounttype=536870913)(primarygroupid=*))
+    ldap_attributes:
+      - samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership;ms-mcs-admpwdexpirationtime;member;primarygroupid
+    behaviour:
+      - multiple queries with different distinguished names (CN=*) AND ldap_filter:"member=*" AND ldap_attributes:"member;range=0-*"
+      
+  method_name: "LocalGroup"
+    ldap_filter:
+      - (&(objectclass=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))
+    ldap_attributes:
+      - objectsid;samaccountname
+    ldap_filter:
+      - (&(sAMAccountType=805306369)(!(UserAccountControl:1.2.840.113556.1.4.803:=2)))
+    ldap_attributes:
+      - samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership;ms-mcs-admpwdexpirationtime
+      
+  method_name: "GPOLocalGroup"
+    ldap_filter:
+      - (&(|(objectcategory=organizationalUnit)(objectclass=domain))(gplink=*)(flags=*))
+    ldap_attributes:
+      - samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership;ms-mcs-admpwdexpirationtime;gplink;name
+    ldap_filter:
+      - (&(objectclass=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))
+    ldap_attributes:
+      - objectsid;samaccountname
+      
+  method_name: "Session"
+    ldap_filter:
+      - (&(objectclass=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))
+    ldap_attributes:
+      - objectsid;samaccountname
+    ldap_filter:
+      - (&(sAMAccountType=805306369)(!(UserAccountControl:1.2.840.113556.1.4.803:=2)))
+    ldap_attributes:
+      - samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership;ms-mcs-admpwdexpirationtime
+      
+  method_name: "LoggedOn"
+    ldap_filter:
+      - (&(objectclass=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))
+    ldap_attributes:
+      - objectsid;samaccountname
+    ldap_filter:
+      - (&(sAMAccountType=805306369)(!(UserAccountControl:1.2.840.113556.1.4.803:=2)))
+    ldap_attributes:
+      - samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership;ms-mcs-admpwdexpirationtime
+      
+  method_name: "ObjectProps"
+    ldap_filter:
+      - (&(objectclass=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))
+    ldap_attributes:
+      - objectsid;samaccountname
+    ldap_filter:
+      - (|(samaccounttype=268435456)(samaccounttype=268435457)(samaccounttype=536870912)(samaccounttype=536870913)(samaccounttype=805306368)(samaccounttype=805306369)
+        (objectclass=domain)(objectclass=organizationalUnit)(&(objectcategory=groupPolicyContainer)(flags=*)))
+    ldap_attributes:
+      - samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership;ms-mcs-admpwdexpirationtime;pwdlastset;lastlogon;lastlogontimestamp;
+        sidhistory;useraccountcontrol;operatingsystem;operatingsystemservicepack;serviceprincipalname;displayname;mail;title;homedirectory;description;admincount;
+        userpassword;gpcfilesyspath;msds-behavior-version;name;gpoptions;msds-allowedToDelegateTo;msDS-AllowedToActOnBehalfOfOtherIdentity
+        
+   method_name: "ACL"
+     ldap_filter:
+       - (&(objectclass=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))
+     ldap_attributes:
+       - objectsid;samaccountname
+     ldap_filter:
+       - (|(samAccountType=805306368)(samAccountType=805306369)(samAccountType=268435456)(samAccountType=268435457)(samAccountType=536870912)(samAccountType=536870913)
+         (objectClass=domain)(&(objectcategory=groupPolicyContainer)(flags=*))(objectcategory=organizationalUnit))
+     ldap_attributes:
+       - samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership;ms-mcs-admpwdexpirationtime;ntsecuritydescriptor;displayname;name
+       
+   method_name: "ComputerOnly"
+     methods:
+       - LocalGroups
+       - Sessions
+     ldap_filter:
+       - (&(objectclass=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))
+     ldap_attributes:
+       - objectsid;samaccountname
+     ldap_filter:
+       - (&(sAMAccountType=805306369)(!(UserAccountControl:1.2.840.113556.1.4.803:=2)))
+     ldap_attributes:
+       - samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership;ms-mcs-admpwdexpirationtime
+       
+   method_name: "Trusts"
+     ldap_filter:
+       - (&(objectclass=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))
+     ldap_attributes:
+       - objectsid;samaccountname
+     ldap_filter:
+       - (objectclass=domain)
+     ldap_attributes:
+       - samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership;ms-mcs-admpwdexpirationtime
+     ldap_filter:
+       - (objectclass=trusteddomain)
+     ldap_attributes:
+       - trustattributes;securityidentifier;trustdirection;trusttype;cn
+       
+   method_name: "Default"
+     methods:
+       - ACL
+       - Container
+       - Group
+       - LocalGroups
+       - ObjectProps
+       - Sessions
+       - Trusts
+       - SPNTargets
+     ldap_filter:
+       - (|(|(samaccounttype=268435456)(samaccounttype=268435457)(samaccounttype=536870912)(samaccounttype=536870913)(primarygroupid=*))
+         (&(sAMAccountType=805306369)(!(UserAccountControl:1.2.840.113556.1.4.803:=2)))(|(samAccountType=805306368)(samAccountType=805306369)
+         (samAccountType=268435456)(samAccountType=268435457)(samAccountType=536870912)(samAccountType=536870913)(objectClass=domain)
+         (&(objectcategory=groupPolicyContainer)(flags=*))(objectcategory=organizationalUnit))(objectclass=domain)(|(samaccounttype=268435456)
+         (samaccounttype=268435457)(samaccounttype=536870912)(samaccounttype=536870913)(samaccounttype=805306368)(samaccounttype=805306369)
+         (objectclass=domain)(objectclass=organizationalUnit)(&(objectcategory=groupPolicyContainer)(flags=*)))
+         (|(&(&(objectcategory=groupPolicyContainer)(flags=*))(name=*)(gpcfilesyspath=*))(objectcategory=organizationalUnit)
+         (objectClass=domain))(&(samaccounttype=805306368)(serviceprincipalname=*)))
+     ldap_attributes:
+       - samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership;ms-mcs-admpwdexpirationtime;member;primarygroupid;
+         ntsecuritydescriptor;displayname;name;pwdlastset;lastlogon;lastlogontimestamp;sidhistory;useraccountcontrol;operatingsystem;operatingsystemservicepack;
+         serviceprincipalname;mail;title;homedirectory;description;admincount;userpassword;gpcfilesyspath;msds-behavior-version;gpoptions;msds-allowedToDelegateTo;
+         msDS-AllowedToActOnBehalfOfOtherIdentity;gplink
+     ldap_filter:
+       - (|(samAccountType=805306368)(samAccountType=805306369)(objectclass=organizationalUnit))
+     ldap_attributes:
+       - samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership
+     ldap_filter:
+       - (|(samAccountType=805306368)(samAccountType=805306369))
+     ldap_attributes:
+       - samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership
+     behaviour:
+       - multiple queries with different distinguished names (CN=*) AND ldap_filter:"member=*" AND ldap_attributes:"member;range=0-*"
+       
+   method_name: "RDP"
+     ldap_filter:
+       - (&(objectclass=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))
+     ldap_attributes:
+       - objectsid;samaccountname
+     ldap_filter:
+       - (&(sAMAccountType=805306369)(!(UserAccountControl:1.2.840.113556.1.4.803:=2)))
+     ldap_attributes:
+       - samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership;ms-mcs-admpwdexpirationtime
+       
+   method_name: "DCOM"
+     ldap_filter:
+       - (&(objectclass=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))
+     ldap_attributes:
+       - objectsid;samaccountname
+     ldap_filter:
+       - (&(sAMAccountType=805306369)(!(UserAccountControl:1.2.840.113556.1.4.803:=2)))
+     ldap_attributes:
+       - samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership;ms-mcs-admpwdexpirationtime
+       
+   method_name: "DCOnly"
+     methods:
+       - ACL
+       - Container
+       - Group
+       - ObjectProps
+       - Trusts
+       - GPOLocalGroup
+     ldap_filter:
+       - (|(samAccountType=805306368)(samAccountType=805306369))
+     ldap_attributes:
+       - samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership
+     ldap_filter:
+       - (|(samAccountType=805306368)(samAccountType=805306369)(objectclass=organizationalUnit))
+     ldap_attributes:
+       - samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership
+     ldap_filter:
+       - (objectclass=*)
+     ldap_attributes:
+       - gpcfilesyspath
+     ldap_filter:
+       - (objectclass=trusteddomain)
+     ldap_attributes:
+       - trustattributes;securityidentifier;trustdirection;trusttype;cn
+     ldap_filter:
+       - (schemaIDGUID=*)
+     ldap_attributes:
+       - schemaidguid;name
+     behaviour: >
+       - multiple queries with different distinguished names (CN=*) AND ldap_filter:"member=*" AND ldap_attributes:"member;range=0-*"
+       - multiple queries with different distinguished names (OU=*) 
+         AND ldap_filter:"(|(samAccountType=805306368)(samAccountType=805306369)(objectclass=organizationalUnit))" 
+         AND ldap_attributes:"samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership"
+     
+   method_name: "All"
+     methods:
+       - ACL
+       - Container
+       - Group
+       - LocalGroups
+       - ObjectProps
+       - Sessions
+       - Trusts
+       - LoggenOn
+       - SPNTargets
+     ldap_filter:
+       - (schemaIDGUID=*)
+     ldap_attributes:
+       - schemaidguid;name
+     ldap_filter:
+       - (&(objectclass=computer)(userAccountControl:1.2.840.113556.1.4.803:=8192))
+     ldap_attributes:
+       - objectsid;samaccountname
+     ldap_filter:
+       - (|(samAccountType=805306368)(samAccountType=805306369)(objectclass=organizationalUnit))
+     ldap_attributes:
+       - samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership
+     ldap_filter:
+       - (objectclass=container)
+     ldap_attributes:
+       - samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership
+     ldap_filter:
+       - (objectclass=trusteddomain)
+     ldap_attributes:
+       - trustattributes;securityidentifier;trustdirection;trusttype;cn
+     behaviour: >
+       - multiple queries with different distinguished names (CN=*) AND ldap_filter:"member=*" AND ldap_attributes:"member;range=0-*"
+       - multiple queries with different distinguished names (OU=*) 
+         AND ldap_filter:"(|(samAccountType=805306368)(samAccountType=805306369)(objectclass=organizationalUnit))" 
+         AND ldap_attributes:"samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership"
+       - multiple queries with different distinguished names (CN=*) AND ldap_filter:"(|(samAccountType=805306368)(samAccountType=805306369))"  
+         AND ldap_attributes:"samaccounttype;objectsid;objectguid;objectclass;samaccountname;msds-groupmsamembership"
