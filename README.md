@@ -32,3 +32,4 @@ Note: in brackets (procedures/ideas/rules) or just (ideas/rules).
 
 ### Tools
 - Invoke-Phant0m (4/4)
+- BloodHound (13/29)
