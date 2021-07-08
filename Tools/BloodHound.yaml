@@ -1,1 +1,245 @@
-# TBD
+tools:
+ - BloodHound
+ - SharpHound
+ - AzureHound
+description: >
+  BloodHound uses graph theory to reveal the hidden and often unintended relationships within an Active Directory environment. 
+  Attackers can use BloodHound to easily identify highly complex attack paths that would otherwise be impossible to quickly identify.
+authors:
+  - @_wald0
+  - @CptJesus
+  - @harmj0y
+links:
+  - https://github.com/BloodHoundAD/BloodHound
+  - https://bloodhound.readthedocs.io/en/latest/index.html
+analyzed_by:
+  - Vadim Khrykov (@BlackMatter23)
+techniques:
+  mitre_attack:
+    discovery:
+      - T1087.001 - Account Discovery - Local Account
+      - T1087.002 - Account Discovery - Domain Account
+      - T1087.004 - Account Discovery - Cloud Account
+      - T1482 - Domain Trust Discovery
+      - T1201 - Password Policy Discovery
+      - T1069.001 - Permission Groups Discovery - Local Groups
+      - T1069.002 - Permission Groups Discovery - Domain Groups
+      - T1069.003 - Permission Groups Discovery - Cloud Groups
+      - T1082 - System Information Discovery
+      - T1033 - System Owner/User Discovery
+    collection:
+      - T1560 - Archive Collected Data
+  description: >
+      Adversary may drop BloodHound files artefacts on the target system and further remove them to cover tracks.
+  detection:
+    ideas: >
+      - monitor BloodHound files artefacts creation/deletion on the system using well known file names.
+      - monitor BloodHound files artefacts creation/deletion on the system using VERSIONINFO attributes.
+    notes: >
+      - signature-based detections.
+      - EDR must provide VERSIONINFO telemetry for file operation events.
+    bypasses: >
+      - adversary can drop renamed BloodHound files artefacts on the target system.
+      - adversary can drop BloodHound files artefacts with changed VERSIONINFO attributes.
+    telemetry:
+      file_create:
+        - Windows EID 4656,4663 (SACL)
+        - Sysmon EID 11
+        - EDR (minifilter)
+      file_rename:
+        - EDR (minifilter)
+      file_delete:
+        - Windows EID 4656,4663 (SACL)
+        - Sysmon EID 23
+        - EDR (minifilter)
+      network_share_access:
+        - Windows EID 5145
+    rules: >
+      - Channel:Windows-Security AND EventID:(4656 OR 4663) AND ObjectType:File AND Accesses:(*WriteData* OR *DELETE*) AND ObjectName:(*SharpHound* OR *BloodHound* OR *AzureHound*)
+      - Channel:Windows-Security AND EventID:5145 AND RelativeTargetName:(*SharpHound* OR *BloodHound* OR *AzureHound*)
+      - Channel:Sysmon AND EventID:(11 OR 23) AND TargetFilename:(*SharpHound* OR *BloodHound* OR *AzureHound*)
+      - Channel:EDR AND EventType:(FileCreate OR FileRename OR FileDelete) AND (Filename:(*SharpHound* OR *BloodHound* OR *AzureHound*) OR OriginalFileName:(*SharpHound* OR *BloodHound*) 
+        OR Description:(*SharpHound* OR *BloodHound*) OR Product:(*SharpHound* OR *BloodHound*) OR Company:"Rohan Vazarkar")
+  description: >
+    Adversary must run BloodHound executables on a compromised host to collect the data.
+  detection:
+    ideas: >
+      - monitor BloodHound binary files and scripts execution.
+    notes: >
+      - signature-based detections.
+    bypasses: >
+      - adversary can execute renamed BloodHound binaries and scripts.
+      - adversary can execute BloodHound binaries with changed VERSIONINFO attributes.
+    telemetry:
+      process_create:
+        - Windows EID 4688
+        - Sysmon EID 1
+        - EDR (PsSetCreateProcessNotifyRoutine/Ex) 
+    rules: >
+      - Channel:Windows-Security AND EventID:4688 AND ((NewProcessName:("\\powershell.exe" OR "\\pwsh.exe") OR ProcessCommandLine:("*powershell *" OR "*pwsh *")) AND ProcessCommandLine:(*SharpHound* OR *BloodHound* OR *AzureHound*) OR NewProcessName:("\\SharpHound.exe" OR "\\BloodHound.exe") 
+        OR (NewProcessName:"\\python.exe" AND ProcessCommandLine:(*SharpHound* OR *BloodHound* OR *AzureHound*)))
+      - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\SharpHound.exe" OR "\\BloodHound.exe") OR ProcessCommandLine:("SharpHound *" OR "*BloodHound *"))
+      - Channel:Sysmon AND EventID:1 AND ((Image:("\\powershell.exe" OR "\\pwsh.exe") OR CommandLine:("*powershell *" OR "*pwsh *") OR OriginalFileName:"PowerShell.EXE" 
+        OR Description:"Windows PowerShell") AND CommandLine:(*SharpHound* OR *BloodHound* OR *AzureHound*))
+      - Channel:Sysmon AND EventID:1 AND (Image:("\\SharpHound.exe" OR "\\BloodHound.exe") OR CommandLine:("SharpHound *" OR "*BloodHound *") OR OriginalFileName:(*SharpHound* OR *BloodHound*) 
+        OR Description:(*SharpHound* OR *BloodHound*) OR Product:(*SharpHound* OR *BloodHound*) OR Company:"Rohan Vazarkar")
+    ideas: >
+      - monitor processes creation with BloodHound specific command-line arguments.
+    notes: >
+      - signature-based detections. Use only suspicious and specific command-line arguments to avoid FPs. 
+    bypasses: >
+      - adversary can change BloodHound specific command-line arguments and evade detection.
+    telemetry:
+      process_create:
+        - Windows EID 4688
+        - Sysmon EID 1
+        - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+    rules: >
+      - Channel:Windows-Security AND EventID:4688 AND ProcessCommandLine:("*CollectionMethod *" OR "* GPOLocalGroup *" OR "* ObjectProps *" OR "* ComputerOnly *" OR "* DCOnly *" OR "*randomizefilenames *" 
+        OR "*zipfilename *" OR "*nosavecache *" OR "*encryptzip *" OR "*invalidatecache *" OR "*ldapfilter *" OR "*disablekerberossigning *" OR "*skipportscan *" OR "*portscantimeout *" 
+        OR "*excludedomaincontrollers *" OR "*jitter *" OR "*overrideusername *" OR "*noregistryloggedon *" OR "*dumpcomputerstatus *"  OR "*realdnsname *" OR "*collectallproperties *" 
+        OR "*windowsonly *" OR "*computerfile *")
+      - Channel:Sysmon AND EventID:1 AND CommandLine:("*CollectionMethod *" OR "* GPOLocalGroup *" OR "* ObjectProps *" OR "* ComputerOnly *" OR "* DCOnly *" OR "*randomizefilenames *" 
+        OR "*zipfilename *" OR "*nosavecache *" OR "*encryptzip *" OR "*invalidatecache *" OR "*ldapfilter *" OR "*disablekerberossigning *" OR "*skipportscan *" OR "*portscantimeout *" 
+        OR "*excludedomaincontrollers *" OR "*jitter *" OR "*overrideusername *" OR "*noregistryloggedon *" OR "*dumpcomputerstatus *"  OR "*realdnsname *" OR "*collectallproperties *" 
+        OR "*windowsonly *" OR "*computerfile *")
+    ideas: >
+      - monitor BloodHound specific powershell cmdlets execution.
+    notes: >
+      - signature-based detections, only Verbose logging level (unfortunately). 
+    bypasses: >
+      - adversary may change/obfuscate BloodHound specific powershell cmdlets and evade detection. 
+    telemetry:
+      script_execution:
+        - Windows-Powershell-Operational EID 4104 (Verbose)
+        - EDR (Microsoft-Windows-PowerShell ETW)
+    rules: >
+      - Channel:Windows-Powershell-Operational AND EventID:4104 
+        AND ScriptBlockText:(*BloodHound* OR *SharpHound* OR *DcOnly* OR *SPNTargets* OR *GPOLocalGroup* OR *RandomizeFilenames* OR *EncryptZip* 
+        OR *DisableKerberosSigning* OR *SkipPortScan* OR *PortScanTimeout* OR *ExcludeDomainControllers* OR *NoRegistryLoggedOn* OR *DumpComputerStatus* 
+        OR *CollectAllProperties* OR *CollectionMethod* OR *AzureHound* OR "*abusable Azure Admin role*" OR "*7be44c8a-adaf-4e2a-84d6-ab2649e08a13*" 
+        OR "*c4e39bd9-1100-46d3-8c65-fb160da0071f*" OR "*729827e3-9c14-49f7-bb1b-9608f156bbb8*" OR "*966707d0-3269-4727-9be2-8c3a10f19b9d*" OR "*fe930be7-5e62-47db-91af-98c3a49a38b1*" OR "*3a2c62db-5318-420d-8d74-23affee5d9d5*" 
+        OR "*fdd7a751-b60b-444a-984c-02652fe8fa1c*" OR "*62e90394-69f5-4237-9190-012177145e10*" OR "*e8611ab8-c189-46e8-94e1-60213ab1f814*" OR "*9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3*" OR "*158c047a-c907-4556-b7ef-446551a6b5f7*")
+    ideas: >
+      - monitor SharpHound specific .NET namespaces and methods execution.
+      - monitor suspicious LDAP related .NET methods execution.
+    notes: >
+      - signature-based detections.
+    bypasses: >
+      - adversary can change/obfuscate BloodHound specific .NET namespaces and methods.
+    telemetry:
+      dot_net:
+        - EDR (Microsoft-Windows-DotNETRuntime ETW)
+    rules: >
+      - Channel:EDR AND EventType:ILStubGenerated AND ManagedInteropMethodNameSpace:(*SharpHound* OR *BloodHound*)
+      - Channel:EDR AND EventType:ILStubGenerated AND ManagedInteropMethodName:("ldap_search" OR "ldap_parse_result" OR "ldap_next_attribute" OR "ldap_connect" OR "ldap_result")
+    ideas: >
+      - monitor LDAP queries initiated by untypical processes.
+    notes: >
+      - behaviour detection, you may find previously unknown threats/tools with it.
+      - profile the rule in your environment and add other legitimate processes.
+    bypasses: >
+      - adversary can name his/her binary as a legitimate one and evade detection. 
+        use counter-hunts to detect various renamed system binaries which make LDAP queries.
+    telemetry:
+      ldap_query:
+        - EDR (Microsoft-Windows-LDAP-Client ETW)
+    rules:
+      - Channel:EDR AND EventType:LDAPQuery AND NOT Image:("\\dsregcmd.exe" OR "\\OUTLOOK.EXE" OR "\\SearchProtocolHost.exe" OR "\\dfsrs.exe" OR "\\dns.exe")
+    ideas: >
+      - monitor suspicious LDAP query filters.
+    notes: >
+      - profile the rule in your environment and filter out legitimate LDAP query filters. 
+    bypasses: >
+      - adversary can refuse to use these LDAP query filters.
+    telemetry:
+      ldap_query:
+        - EDR (Microsoft-Windows-LDAP-Client ETW)
+    rules: >
+      - Channel:EDR AND EventType:LDAPQuery AND QueryFilter:("*\(objectclass\=computer\)\(userAccountControl\:1\.2\.840\.113556\.1\.4\.803\:\=8192\)\)*" 
+        OR "*\(sAMAccountType\=805306369\)\(\!\(UserAccountControl\:1\.2\.840\.113556\.1\.4\.803\:\=2\)\)*" OR "*\(objectcategory\=organizationalUnit\)\(objectclass\=domain\)\)\(gplink\=\*\)\(flags\=\*\)*" 
+        OR "*\(objectcategory\=groupPolicyContainer\)\(flags\=\*\)*" OR "*\(samaccounttype\=805306368\)\(serviceprincipalname\=\*\)*")
+    ideas: >
+      - monitor suspicious LDAP query filter attributes.
+    notes: >
+      - profile the rule in your environment and filter out noisy LDAP query filters attributes.
+    bypasses: >
+      - adversary can refuse to use these LDAP query filter attributes.
+    telemetry:
+      ldap_query:
+        - EDR (Microsoft-Windows-LDAP-Client ETW)
+    rules: >
+      - Channel:EDR AND EventType:LDAPQuery AND QueryFilterAttributes:("*msds\-groupmsamembership*" OR "*ms-mcs-admpwdexpirationtime*" OR "*sidhistory*" OR 
+        "*admincount*" OR "*userpassword*" OR "*msds-allowedToDelegateTo*" OR "*msDS-AllowedToActOnBehalfOfOtherIdentity*" OR "*trustdirection\;trusttype*")
+    ideas: >
+      - monitor suspicious combinations of LDAP query DNs/filters/attributes.
+    notes: >
+      - profile the rule in your environment and filter out legitimate query combinations. 
+    bypasses: >
+      - adversary can refuse to use these combinations of LDAP query DNs/filters/attributes.
+    telemetry:
+      ldap_query:
+        - EDR (Microsoft-Windows-LDAP-Client ETW)
+    rules: >
+      - Channel:EDR AND EventType:LDAPQuery AND QueryDN:"CN\=*" AND QueryFilter.keyword:/member\=\*/
+      - Channel:EDR AND EventType:LDAPQuery AND QueryDN:"CN\=*" AND QueryFilter.keyword:/member\=\*/ AND QueryFilterAttributes.keyword:/member\;range\=0\-\*/
+      - Channel:EDR AND EventType:LDAPQuery AND QueryDN:"OU\=*" AND QueryFilter:"*\(samAccountType\=805306368\)\(samAccountType\=805306369\)*"
+    ideas: >
+      - hunt for suspicious LDAP queries using the power of correlation engine.
+    notes: >
+      - play with the rules parameters and find which work best for you.
+      - use the link below as a reference of SharpHound collection modes and related LDAP queries: 
+        https://github.com/vadim-hunter/Detection-Ideas-Rules/blob/main/KB/SharpHound_LDAP_Queries.yaml
+    bypasses: >
+      - adversary can evade correlation rules detection being less noisy.
+    rules: >
+      - Channel:EDR AND EventType:LDAPQuery AND at least [10] queries from [1] source host where QueryDN:"CN\=*" AND QueryFilter.keyword:/member\=\*/ within 1 min
+      - Channel:EDR AND EventType:LDAPQuery AND at least [5] queries from [1] source host where QueryDN:"OU\=*" AND QueryFilter:"*\(samAccountType\=805306368\)\(samAccountType\=805306369\)*" within 1 min
+  description: >
+    After collection is finished, BloodHound collectors create various file artefacts on the target system.
+  detection:
+    ideas: >
+      - monitor file artefacts created by SharpHound collector upon collection completion (rules 1-4).
+      - monitor file artefacts created by AzureHound collector upon collection completion (rules 5-8).
+    notes: >
+      - signature-based detections.
+    bypasses: >
+      - adversary can use "randomizefilenames" option or customize file artefacts names to evade detection.
+      - adversary can customize AzureHound file artefacts names to evade detection.
+    telemetry:
+      file_create:
+        - Windows EID 4656,4663 (SACL)
+        - Sysmon EID 11
+        - EDR (minifilter)
+      file_rename:
+        - EDR (minifilter)
+      file_delete:
+        - Windows EID 4656,4663 (SACL)
+        - Sysmon EID 23
+        - EDR (minifilter)
+      network_share_access:
+        - Windows EID 5145
+    rules: >
+      - Channel:Windows-Security AND EventID:(4656 OR 4663) AND ObjectType:File AND Accesses:(*WriteData* OR *DELETE*) 
+        AND (ObjectName:*BloodHound* OR ObjectName.keyword:(/.*\\.*[0-9]{14}\_(computers|domains|gpos|groups|ous|users)\.json/ OR /.*\\.*[A-Za-z0-9+\/=]{48}\.bin/)
+      - Channel:Windows-Security AND EventID:5145 
+        AND (RelativeTargetName:*BloodHound* OR RelativeTargetName.keyword:(/.*\\.*[0-9]{14}\_(computers|domains|gpos|groups|ous|users)\.json/ OR /.*\\.*[A-Za-z0-9+\/=]{48}\.bin/)
+      - Channel:Sysmon AND EventID:(11 OR 23) AND (TargetFilename:*BloodHound* OR TargetFilename.keyword:(/.*\\.*[0-9]{14}\_(computers|domains|gpos|groups|ous|users)\.json/ OR /.*\\.*[A-Za-z0-9+\/=]{48}\.bin/)
+      - Channel:EDR AND EventType:(FileCreate OR FileRename OR FileDelete) 
+        AND (Filename:*BloodHound* OR Filename.keyword:(/.*\\.*[0-9]{14}\_(computers|domains|gpos|groups|ous|users)\.json/ OR /.*\\.*[A-Za-z0-9+\/=]{48}\.bin/)
+      - Channel:Windows-Security AND EventID:(4656 OR 4663) AND ObjectType:File AND Accesses:(*WriteData* OR *DELETE*) 
+        AND ObjectName:(*azurecollection* OR *azusers* OR *azgroups* OR *aztenants* OR *azsubscriptions* OR *azresourcegroups* OR *azvms* OR *azkeyvaults* 
+        OR *azdevices* OR *azgroupowners* OR *azgroupmembers* OR *azvmpermissions* OR *azrgpermissions* OR *azkvpermissions* OR *azkvaccesspolicies* 
+        OR *azpwresetrights* OR *azgroupsrights* OR *azglobaladminrights* OR *azprivroleadminrights* OR *azapplicationowners* OR *azapplicationtosp* 
+        OR *applicationadmins* OR *azcloudappadmins* OR *appadmins*)
+      - Channel:Windows-Security AND EventID:5145 AND RelativeTargetName:(*azurecollection* OR *azusers* OR *azgroups* OR *aztenants* OR *azsubscriptions* OR *azresourcegroups* OR *azvms* 
+        OR *azkeyvaults* OR *azdevices* OR *azgroupowners* OR *azgroupmembers* OR *azvmpermissions* OR *azrgpermissions* OR *azkvpermissions* OR *azkvaccesspolicies* 
+        OR *azpwresetrights* OR *azgroupsrights* OR *azglobaladminrights* OR *azprivroleadminrights* OR *azapplicationowners* OR *azapplicationtosp* 
+        OR *applicationadmins* OR *azcloudappadmins* OR *appadmins*)
+      - Channel:Sysmon AND EventID:(11 OR 23) AND TargetFilename:(*azurecollection* OR *azusers* OR *azgroups* OR *aztenants* OR *azsubscriptions* OR *azresourcegroups* OR *azvms* 
+        OR *azkeyvaults* OR *azdevices* OR *azgroupowners* OR *azgroupmembers* OR *azvmpermissions* OR *azrgpermissions* OR *azkvpermissions* OR *azkvaccesspolicies* 
+        OR *azpwresetrights* OR *azgroupsrights* OR *azglobaladminrights* OR *azprivroleadminrights* OR *azapplicationowners* OR *azapplicationtosp* 
+        OR *applicationadmins* OR *azcloudappadmins* OR *appadmins*)
+      - Channel:EDR AND EventType:(FileCreate OR FileRename OR FileDelete) AND Filename:(*azurecollection* OR *azusers* OR *azgroups* OR *aztenants* OR *azsubscriptions* OR *azresourcegroups* 
+        OR *azvms* OR *azkeyvaults* OR *azdevices* OR *azgroupowners* OR *azgroupmembers* OR *azvmpermissions* OR *azrgpermissions* OR *azkvpermissions* OR *azkvaccesspolicies* 
+        OR *azpwresetrights* OR *azgroupsrights* OR *azglobaladminrights* OR *azprivroleadminrights* OR *azapplicationowners* OR *azapplicationtosp* OR *applicationadmins* OR *azcloudappadmins* OR *appadmins*)
