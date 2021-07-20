@@ -158,3 +158,160 @@ analysis:
           ProcessCommandLine.keyword:(/.*\.dat[\"\'\,].*/) AND ProcessCommandLine:("\\Users\\" OR "\\Temp\\" OR "\\ProgramData\\")
         - Channel:Sysmon AND EventID:1 AND (Image:"\\rundll32.exe" OR CommandLine:"rundll32 *" OR OriginalFileName:"rundll32.exe" OR Description:"Windows host process (Rundll32)")
           AND CommandLine.keyword:(/.*\.dat[\"\'\,].*/) AND CommandLine:("\\Users\\" OR "\\Temp\\" OR "\\ProgramData\\")
+  quote: >
+    - "IcedID setup persistence on the beach head host using a scheduled task."
+  mitre_attack:
+    persistence:
+      T1053 - Scheduled Task/Job - Scheduled Task
+    detection:
+      ideas: >
+        - monitor scheduled tasks creation using Schtasks/At utilities with LOLBin binaries in command-line.
+          Note: add other LOLBins binaries to the rules logic of your choice.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\schtasks.exe" OR ProcessCommandLine:"*schtasks *") AND ProcessCommandLine:("*\/Create *" OR "*\/Change *") 
+          AND ProcessCommandLine:(*regsvr32* OR *rundll32* OR *msiexec* OR *mshta* OR *verclsid*)
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\schtasks.exe" OR CommandLine:"*schtasks *" OR Description:"Task Scheduler Configuration Tool" OR OriginalFileName:"schtasks.exe") 
+          AND CommandLine:("*\/Create *" OR "*\/Change *") AND CommandLine:(*regsvr32* OR *rundll32* OR *msiexec* OR *mshta* OR *verclsid*)
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\at.exe" OR ProcessCommandLine:"at *") AND ProcessCommandLine:(*regsvr32* OR *rundll32* OR *msiexec* OR *mshta* OR *verclsid*)
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\at.exe" OR CommandLine:"at *" OR Description:"Schedule service command line interface" OR OriginalFileName:"AT.exe") 
+          AND CommandLine:(*regsvr32* OR *rundll32* OR *msiexec* OR *mshta* OR *verclsid*)
+      ideas: >
+        - monitor scheduled tasks creation/updating with LOLBin binaries in "ActionsExecCommand" field.
+          Note: 1. You need to parse task XML stored in "Task Content"/"Task New Content" field of the event.
+                2. Add other LOLBins binaries to the rules logic of your choice.
+      telemetry:
+        scheduled_task_create:
+          - Windows EID 4698
+        scheduled_task_update:
+          - Windows EID 4702
+      rules: >
+        - Channel:Windows-Security AND EventID:(4698 OR 4702) AND ActionsExecCommand:(*regsvr32* OR *rundll32* OR *msiexec* OR *mshta* OR *verclsid*)
+      ideas: >
+        - monitor scheduled tasks creation/updating with LOLBins binaries in "Actions" field using registry change events.
+          Note: commands executed by tasks are stored in registry key value "Actions" in binary format. You'll need to parse it on your data pipeline
+          or you can use EDR which is able to parse tasks "Actions" in the registry.
+      telemetry:
+        registry_value_set:
+          - Windows EID 4657 (SACL)
+          - Sysmon EID 13
+          - EDR (CmRegisterCallback/Ex, Registry API)
+      rules: >
+        - Channel:Windows-Security AND EventID:4657 AND ObjectName:"\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\" 
+          AND ObjectValueName:"Actions" AND DecodedActionsValue:(*regsvr32* OR *rundll32* OR *msiexec* OR *mshta* OR *verclsid*)
+        - Channel:Sysmon AND EventID:13 AND TargetObject:"\\CurrentVersion\\Schedule\\TaskCache\\Tasks\\" 
+          AND TargetObject:"\\Actions" AND DecodedDetails:(*regsvr32* OR *rundll32* OR *msiexec* OR *mshta* OR *verclsid*)
+      ideas: >
+        - monitor LOLBins process creation with Task scheduler parent process.
+          Note: 1. Parent process command-line is required for "svchost.exe -k netsvcs -p -s Schedule" detection rules.
+                2. It's better to use separate rules with VERSIONINFO attributes for every LOLBin binary according to MITRE ATT&CK (see Rundll32 example, rule #3).
+                3. Add other LOLBins binaries to the rules logic of your choice.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND NewProcessName:("\\regsvr32.exe" OR "\\rundll32.exe" OR "\\msiexec.exe" OR "\\mshta.exe" OR "\\verclsid.exe")
+          AND CreatorProcessName:("\\System32\\taskeng.exe" OR "\\SysWOW64\\taskeng.exe")
+        - Channel:Sysmon AND EventID:1 AND Image:("\\regsvr32.exe" OR "\\rundll32.exe" OR "\\msiexec.exe" OR "\\mshta.exe" OR "\\verclsid.exe")
+          AND (ParentImage:("\\System32\\taskeng.exe" OR "\\SysWOW64\\taskeng.exe") OR (ParentImage:("\\System32\\svchost.exe" OR "\\SysWOW64\\svchost.exe") AND ParentCommandLine:*Schedule*))
+        - Channel:Sysmon AND EventID:1 (Image:"\\rundll32.exe" OR CommandLine:"rundll32 *" OR OriginalFileName:"rundll32.exe" OR Description:"Windows host process (Rundll32)") 
+          AND (ParentImage:("\\System32\\taskeng.exe" OR "\\SysWOW64\\taskeng.exe") OR (ParentImage:("\\System32\\svchost.exe" OR "\\SysWOW64\\svchost.exe") AND ParentCommandLine:*Schedule*))
+  quote: >
+    - "After completing LDAP discovery (BloodHound)..."
+  mitre_attack:
+    discovery:
+      - T1087.001 - Account Discovery - Local Account
+      - T1087.002 - Account Discovery - Domain Account
+      - T1087.004 - Account Discovery - Cloud Account
+      - T1482 - Domain Trust Discovery
+      - T1201 - Password Policy Discovery
+      - T1069.001 - Permission Groups Discovery - Local Groups
+      - T1069.002 - Permission Groups Discovery - Domain Groups
+      - T1069.003 - Permission Groups Discovery - Cloud Groups
+      - T1082 - System Information Discovery
+      - T1033 - System Owner/User Discovery
+    collection:
+      - T1560 - Archive Collected Data
+    detection:
+      - https://github.com/vadim-hunter/Detection-Ideas-Rules-Private/blob/main/Tools/BloodHound.yaml
+  quote: >
+    - "the Cobalt Strike Beacon running in the wuauclt.exe process executed several PowerShell functions for UAC bypasses including:
+       UAC-TokenMagic and ..."
+  mitre_attack:
+    privilege_escalation:
+      - T1134.001 - Access Token Manipulation - Token Impersonation/Theft
+      - T1134.002 - Access Token Manipulation - Create Process with Token
+      - T1548.002 - Abuse Elevation Control Mechanism - Bypass User Account Control
+    detection:
+      ideas: >
+        - monitor UAC-TokenMagic specific powershell cmdlets execution.
+      telemetry:
+        script_execution:
+          - Windows-Powershell-Operational EID 4104 (Warning)
+          - EDR (Microsoft-Windows-PowerShell ETW)
+      rules: >
+        - Channel:Windows-Powershell-Operational AND EventID:4104 
+          AND ScriptBlockText:("*UAC-TokenMagic*" OR *UACTokenMagic* OR *OpenProcessToken* OR *DuplicateTokenEx* OR *AllocateAndInitializeSid* 
+          OR *NtSetInformationToken* OR *NtFilterToken* OR *ImpersonateLoggedOnUser* OR *CreateProcessWithLogonW*)
+      ideas: >
+        - monitor "High" integrity level powershell.exe/cmd.exe process creation by parent processes with "Medium" integrity level.
+      notes: >
+        - unfortunately Windows EID 4688 and Sysmon EID 1 don't provide us parent process integrity level, use your EDR for detection.
+        - 2nd rule is enchanced version of the 1st rule with "bad" folders condition for parent process image.
+        - some FPs are possible here, filter them out.
+      telemetry:
+        process_create:
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      rules: >
+        - Channel:EDR AND EventType:ProcessCreate AND Image:("\\cmd.exe" OR "\\powershell.exe") AND IntegrityLevel:"High" AND ParentImageIntegrityLevel:"Medium" 
+          AND NOT ParentImage:("\\Windows\\System32\\" OR "\\Windows\\explorer.exe")
+        - Channel:EDR AND EventType:ProcessCreate AND Image:("\\cmd.exe" OR "\\powershell.exe") AND IntegrityLevel:"High" AND ParentImageIntegrityLevel:"Medium" 
+          AND ParentImage:("\\Users\\" OR "\\Temp\\" OR "\\ProgramData\\")      
+  quote: >
+    - "the Cobalt Strike Beacon running in the wuauclt.exe process executed several PowerShell functions for UAC bypasses including:
+       ... and Invoke-SluiBypass"
+  mitre_attack:        
+    privilege_escalation:
+      - T1548.002 - Abuse Elevation Control Mechanism - Bypass User Account Control
+    detection:
+      ideas: >
+        - monitor "\shell\open\command" registry value changes, it will allow you to catch not only "Slui" UAC bypass, but also other "autoElevate"
+          binaries like fodhelper, sdclt, wsreset, eventvwr and may be something previously unknown.
+      notes: >
+        - add more suspicious registry values to the rules by your choice. 
+      telemetry:
+        registry_value_set:
+          - Windows EID 4657 (SACL)
+          - Sysmon EID 13
+          - EDR (CmRegisterCallback/Ex, Registry API)
+      rules: >
+        - Channel:Windows-Security AND EventID:4657 AND ObjectName:"\\shell\\open\\command" 
+          AND ObjectValueName:("cmd.exe *" OR "cmd \/c *" OR "powershell *" OR "powershell.exe *" OR "rundll32*" OR "regsvr32*" OR "mshta*" OR "msiexec*" OR "verclsid*" OR "msbuild*")
+        - Channel:Sysmon AND EventID:13 AND TargetObject:"\\shell\\open\\command" AND TargetObject:("cmd.exe *" OR "cmd \/c *" OR "powershell *" OR "powershell.exe *" OR "rundll32*" OR "regsvr32*" OR "mshta*" OR "msiexec*" OR "verclsid*" OR "msbuild*")
+      ideas: >
+        - monitor suspicious child processes spawned by "autoElevate" binaries.
+      notes: >
+        - add more suspicious child processes and "autoElevate" binaries by your choice.
+        - don't forget to use VERSIONINFO attributes for Sysmon (see 3rd rule as an example).
+      process_create:
+          - Windows EID 4688 
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\cmd.exe" OR ProcessCommandLine:"*cmd \/c *" OR NewProcessName:"\\powershell.exe" OR ProcessCommandLine:"*powershell *" 
+          OR NewProcessName:"\\rundll32.exe" OR ProcessCommandLine:"*rundll32 *" OR NewProcessName:"\\regsvr32.exe" OR ProcessCommandLine:"*regsvr32 *" OR NewProcessName:"\\mshta.exe" OR ProcessCommandLine:"*mshta *"  
+          OR NewProcessName:"\\msiexec.exe" OR ProcessCommandLine:"*msiexec *" OR NewProcessName:"\\verclsid.exe" OR ProcessCommandLine:"*verclsid *") 
+          AND CreatorProcessName:("\\slui.exe" OR "\\fodhelper.exe" OR "\\sdclt.exe" OR "\\wsreset.exe" OR "\\eventvwr.exe")
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\cmd.exe" OR CommandLine:"*cmd \/c *" OR Image:"\\powershell.exe" OR CommandLine:"*powershell *" 
+          OR Image:"\\rundll32.exe" OR CommandLine:"*rundll32 *" OR Image:"\\regsvr32.exe" OR CommandLine:"*regsvr32 *" OR Image:"\\mshta.exe" OR CommandLine:"*mshta *"  
+          OR Image:"\\msiexec.exe" OR CommandLine:"*msiexec *" OR Image:"\\verclsid.exe" OR CommandLine:"*verclsid *") 
+          AND ParentImage:("\\slui.exe" OR "\\fodhelper.exe" OR "\\sdclt.exe" OR "\\wsreset.exe" OR "\\eventvwr.exe")
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\rundll32.exe" OR CommandLine:"rundll32 *" OR OriginalFileName:"rundll32.exe" OR Description:"Windows host process (Rundll32)")
+          AND ParentImage:("\\slui.exe" OR "\\fodhelper.exe" OR "\\sdclt.exe" OR "\\wsreset.exe" OR "\\eventvwr.exe")
+          
