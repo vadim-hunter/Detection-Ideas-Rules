@@ -314,4 +314,242 @@ analysis:
           AND ParentImage:("\\slui.exe" OR "\\fodhelper.exe" OR "\\sdclt.exe" OR "\\wsreset.exe" OR "\\eventvwr.exe")
         - Channel:Sysmon AND EventID:1 AND (Image:"\\rundll32.exe" OR CommandLine:"rundll32 *" OR OriginalFileName:"rundll32.exe" OR Description:"Windows host process (Rundll32)")
           AND ParentImage:("\\slui.exe" OR "\\fodhelper.exe" OR "\\sdclt.exe" OR "\\wsreset.exe" OR "\\eventvwr.exe")
+  quote: >
+    - "About one and a half hours after initial access, IcedID reached out to two Cobalt Strike servers. 
+       cmd.exe injected into explorer.exe which in turn injected into Wuauctl.exe process later (CreateRemoteThread)"
+  mitre_attack:        
+    defense_evasion:
+      - T1055.001 - Process Injection - Dynamic-link Library Injection
+    detection:
+      ideas: >
+        - monitor CreateRemoteThread injections to Explorer.exe or Wuauclt.exe from untypical processes.
+      notes: >
+        - this activity is hard to detect, profile your environment and add more legitimate processes to filter conditions.
+        - use SourceImage process command-lines to narrow down your filters, unfortunately it's not possible with Sysmon, use EDR (see rules 3,5).
+      telemetry:
+        inject_create_remote_thread:
+          - Sysmon EID 8
+          - EDR (PsSetCreateThreadNotifyRoutine/Ex)
+      rules: >
+        - Channel:Sysmon AND EventID:8 AND TargetImage:"\\explorer.exe" AND NOT SourceImage:("\\WerFault.exe" OR "\\svchost.exe" OR "\\userinit.exe" 
+          OR "\\system32\\rundll32.exe" OR "\\winlogon.exe")
+        - Channel:Sysmon AND EventID:8 AND TargetImage:"\\explorer.exe" AND SourceImage:("\\Users\\" OR "\\Temp\\" OR "\\ProgramData\\")
+        - Channel:EDR AND EventType:InjectCreateRemoteThread AND TargetImage:"\\explorer.exe" AND NOT (SourceImage:("\\WerFault.exe" OR "\\svchost.exe" OR "\\userinit.exe" 
+          OR "\\winlogon.exe") OR (SourceImage:"\\System32\\rundll32.exe" AND SourceImageCommandLine:"*\\LenovoBatteryGaugePackage\\x64\\LenovoBatteryGaugePackage*"))  
+        - Channel:Sysmon AND EventID:8 AND TargetImage:"\\wuauclt.exe" AND NOT SourceImage:("\\System32\\mousocoreworker.exe" OR "\\system32\\svchost.exe")
+        - Channel:EDR AND EventType:InjectCreateRemoteThread AND TargetImage:"\\wuauclt.exe" AND NOT ((SourceImage:("\\System32\\mousocoreworker.exe" AND SourceImageCommandLine:*Embedding*)  
+          OR (SourceImage:"\\system32\\svchost.exe" AND SourceImageCommandLine:*netsvcs* AND SourceImageCommandLine:*wuauserv*))
+  quote: >
+    - "Process injection (CreateRemoteThread) was used multiple times across the environment using Cobalt Strike Beacons."
+      "rundll32.exe injected info svchost.exe (on the picture)"
+  mitre_attack:
+    defense_evasion:
+      - T1055.001 - Process Injection - Dynamic-link Library Injection
+    detection:
+      ideas: >
+        - monitor CreateRemoteThread injections to svchost.exe process from untypical processes.
+      notes: >
+        - this activity is hard to detect, profile your environment and add more legitimate processes to filter conditions.
+        - use SourceImage process command-lines to narrow down your filters, unfortunately it's not possible with Sysmon, use EDR (see rule 2).
+      telemetry:
+        inject_create_remote_thread:
+          - Sysmon EID 8
+          - EDR (PsSetCreateThreadNotifyRoutine/Ex)
+      rules: >
+        - Channel:Sysmon AND EventID:8 AND TargetImage:"\\svchost.exe" AND NOT SourceImage:("\\System32\\services.exe" OR "\\System32\\WerFault.exe" OR "\\System32\\wbem\\WmiPrvSE.exe" OR "\\System32\\svchost.exe")
+        - Channel:EDR AND EventType:InjectCreateRemoteThread AND TargetImage:"\\svchost.exe" 
+          AND NOT ((SourceImage:("\\System32\\services.exe" OR "\\System32\\WerFault.exe" OR "\\System32\\wbem\\WmiPrvSE.exe" OR "\\System32\\svchost.exe")  
+          OR (SourceImage:"\\system32\\rundll32.exe" AND SourceImageCommandLine:*ExecuteScheduledSPPCreation* AND SourceImageCommandLine:*srrstr*))
+  quote: >
+    - "Prior to executing the ransomware, the threat actors created a GPO (using powershell) to disable Windows Defender across all systems/OUs."
+  mitre_attack:
+    execution:
+      - T1059.001 - Command and Scripting Interpreter - PowerShell
+    defense_evasion:
+      - T1562.001 - Impair Defenses - Disable or Modify Tools
+      - T1484.001 - Domain Policy Modification - Group Policy Modification
+    detection:
+      ideas: >
+        - monitor suspicious GPO manipulation using specific Powershell cmdlets.
+      notes: >
+        - signature-based detection, only Verbose level (unfortunately).
+      telemetry:
+        script_execution:
+          - Windows-Powershell-Operational EID 4104 (Verbose)
+          - EDR (Microsoft-Windows-PowerShell ETW)
+      rules: >
+        - Channel:Windows-Powershell-Operational AND EventID:4104 AND ScriptBlockText:("*New-GPO*" OR "*New-GPOImmediateTask*" OR "*Import-GPO*" 
+          OR "*Restore-GPO*" OR "*Get-GptTmpl*" OR "*Get-GroupsXML*" OR "*Get-NetGPO*" OR "*Find-GPOLocation*" OR "*Get-NetGPOGroup*" OR "*Find-GPOComputerAdmin*" 
+          OR "*New-GPLink*" OR "*Set-GPLink*" OR "*Set-GPPermission*")
+      ideas: >
+        - monitor new Group Policy creation events, use long tail analysis to find suspicous GPOs.
+      notes: >
+        - good for in-house environments.
+        - 1st rule will only give you GPO unique ID.
+        - 2nd rule will give you the name of created GPO.
+      telemetry:
+        ad_object_modification:
+          - Windows EID 5136
+        ad_object_creation:
+          - Windows EID 5137
+      rules: >
+        - Channel:Windows-Security AND EventID:5137 AND ObjectClass:"groupPolicyContainer"
+        - Channel:Windows-Security AND EventID:5136 AND ObjectClass:"groupPolicyContainer" AND AttributeLDAPDisplayName:"displayName" AND OperationType:"Value Added"
+      ideas: >
+        - monitor Windows Defender disabling using registry change events.
+      notes: >
+        - all settings: leave the settings which are interesting for you. 
+      telemetry:
+        registry_value_set:
+          - Windows EID 4657 (SACL)
+          - Sysmon EID 13
+          - EDR (CmRegisterCallback/Ex, Registry API)
+      rules: >
+        - Channel:Windows-Security AND EventID:4657 AND ObjectName:"\\Policies\\Microsoft\\Windows Defender" AND ObjectValueName:*Disable* AND ChangeInformationNewValue:*1*
+        - Channel:Sysmon AND EventID:13 AND TargetObject:"\\Policies\\Microsoft\\Windows Defender" AND TargetObject:*Disable* AND Details:*1*  
+  quote: >
+    - "Credentials were dumped on a server and domain controller using a Cobalt Strike Beacon."
+    -  The DFIR Report team addition: "The initial 2f092e6.exe was downloaded by an existing cobalt strike beacon with the intention of being run as a service under SYSTEM (named svc-exe in Cobalt Strike). 
+       When 2f092e6.exe is run rundll32.exe is spawned and a Cobalt Strike beacon is injected into it. After a Cobalt Strike beacon was injected into an existing wuauclt.exe process, 
+       and in turn injected again into lsass.exe with the goal of credential dumping." 
+  mitre_attack:
+    lateral_movement:
+      - T1021.002 - Remote Services - SMB/Windows Admin Shares
+    execution:
+      - T1059.002 - System Services - Service Execution
+    defense_evasion:
+      - T1055.001 - Process Injection - Dynamic-link Library Injection
+      - T1218.011 - Signed Binary Proxy Execution - Rundll32
+    credential_access:
+      - T1003.001 - OS Credential Dumping - LSASS Memory
+    detection:
+      ideas: >
+        - monitor executable files creation/renaming/deletion in Windows admin shares by System process (PID=4), use file extensions and 
+          PE magic bytes (much better option).
+        - monitor executable files creation and subsequent deletion in Windows admin shares by System process (PID=4) in short period of time 
+          using correlation engine (rules 4-6).
+      notes: >
+        -  for EID 5145 we don't have initiator process PID, therefore you'll need to filter out some FPs.
+      telemetry:
+        file_create:
+          - Sysmon EID 11
+          - EDR (minifilter)
+        file_rename:
+          - EDR (minifilter)
+        file_delete:
+          - Sysmon EID 23
+          - EDR (minifilter)
+        network_share_access:
+          - Windows EID 5145
+      rules: >
+        - Channel:Windows-Security AND EventID:5145 AND ShareName.keyword:/\\\\\*\\(ADMIN|IPC|C)\$*/ AND RelativeTargetName.keyword:*.exe AND Accesses:(*WriteData* OR *DELETE*)
+        - Channel:Sysmon AND EventID:(11 OR 23) AND ProcessId:4 AND TargetFilename.keyword:/c\:\\.*/ AND (TargetFilename.keyword:*.exe OR IsExecutable:true)
+        - Channel:EDR AND EventType:(FileCreate OR FileRename OR FileDelete) AND ProcessId:4 AND Filename.keyword:/c\:\\.*/ AND (Filename.keyword:*.exe OR FileMagicBytes:4D5A*) 
+        - (Channel:Windows-Security AND EventID:5145 AND ShareName.keyword:/\\\\\*\\(ADMIN|IPC|C)\$*/ AND RelativeTargetName.keyword:*.exe AND Accesses:*WriteData*)
+          followed by
+          (Channel:Windows-Security AND EventID:5145 AND ShareName.keyword:/\\\\\*\\(ADMIN|IPC|C)\$*/ AND RelativeTargetName.keyword:*.exe AND Accesses:*DELETE*)
+          with the same [RelativeTargetName] within [1 min]
+        - (Channel:Sysmon AND EventID:11 AND ProcessId:4 AND TargetFilename.keyword:/c\:\\.*/ AND (TargetFilename.keyword:*.exe OR IsExecutable:true))
+          followed by
+          (Channel:Sysmon AND EventID:23 AND ProcessId:4 AND TargetFilename.keyword:/c\:\\.*/ AND (TargetFilename.keyword:*.exe OR IsExecutable:true))
+          with the same [TargetFilename] within [1 min]
+        - (Channel:EDR AND EventType:(FileCreate OR FileRename) AND ProcessId:4 AND Filename.keyword:/c\:\\.*/ AND (Filename.keyword:*.exe OR FileMagicBytes:4D5A*))
+          followed by
+          (Channel:EDR AND EventType:FileDelete AND ProcessId:4 AND Filename.keyword:/c\:\\.*/ AND (Filename.keyword:*.exe OR FileMagicBytes:4D5A*))
+          with the same [Filename] within [1 min]
+      ideas: >
+        - monitor suspicous service install events followed by service uninstall events with the same ServiceName in short period of time (correlation engine).
+      notes: >
+        - there is no "Service uninstall" event in Windows, so we will use EID 4674 "An operation was attempted on a privileged object" with ObjectType:"SERVICE OBJECT".
+      telemetry:
+        service_install:
+          - Windows EID 4697 (Security)
+          - Windows EID 7045 (System)
+        privileged_object_operation:
+          - Windows EID 4674
+      rules: >
+        - ((Channel:Windows-Security AND EventID:4697) OR (Channel:Windows-System AND EventID:7045)) as ServiceInstall followed by 
+          (Channel:Windows-Security AND EventID:4674 AND ObjectType:"SERVICE OBJECT" AND DesiredAccess:*DELETE*) as ServiceUninstall
+          where [ServiceInstall.ServiceName == ServiceUninstall.ObjectName]
+          within [1 min]
+      ideas: >
+        - monitor suspicious LSASS memory access from untypical processes. Add your legitimate processes, I don't want to spoil our filtering conditions to
+          bad guys.
+      notes: >
+        - like Injections this activity is hard to detect, profile your environment and add more legitimate processes to filter conditions.
+        - use SourceImage process command-lines to narrow down your filters, unfortunately it's not possible with Sysmon, use EDR (see rule 3).
+      telemetry:
+        process_access:
+          - Sysmon EID 10
+          - EDR (ObRegisterCallbacks/PsProcessType)
+        object_access:
+          - Windows EID 4663
+      rules: >
+        - Channel:Windows-Security AND EventID:4663 AND ObjectName:("\\Windows\\System32\\lsass.exe") AND AccessMask:*0x10* AND NOT ProcessName:(your legitimate processes)
+        - Channel:Sysmon AND EventID:10 AND TargetImage:("\\Windows\\System32\\lsass.exe") AND GrantedAccess:*0x0010* AND NOT SourceImage:(your legitimate processes)
+        - Channel:EDR AND EventType:ProcessAccess AND TargetImage:("\\Windows\\System32\\lsass.exe") AND GrantedAccess:*0x0010* 
+          AND NOT (SourceImage:(your legitimate processes) AND SourceImageCommandLine:(specific command-lines of your legitimate processes))
+  quote: >
+    - "Initial discovery by the IcedID malware occurred within minutes of execution"
+      "wmic /node:localhost /Namespace:\\root\SecurityCenter2 Path AntiVirusProduct Get * /Format:List"
+  mitre_attack:
+    execution:
+      - T1047 - Windows Management Instrumentation
+    discovery:
+      - T1518.001 - Software Discovery - Security Software Discovery
+    detection:
+      ideas: >
+        - monitor for suspicous installed security software discovery using WMIC and Powershell.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+        script_execution:
+          - Windows-Powershell EID 400
+          - Windows-PowerShell-Operational EID 4104 (Verbose)
+          - EDR (Microsoft-Windows-PowerShell ETW)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\wbem\\WMIC.exe" OR ProcessCommandLine:"*wmic *") AND ProcessCommandLine:"*\\\\root\\SecurityCenter*" 
+          AND ProcessCommandLine:(*AntiVirusProduct* OR *AntiSpywareProduct* OR *FirewallProduct*)
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\wbem\\WMIC.exe" OR CommandLine:"*wmic *" OR OriginalFileName:"wmic.exe" OR Description:"WMI Commandline Utility")
+          AND CommandLine:"*\\\\root\\SecurityCenter*" AND CommandLine:(*AntiVirusProduct* OR *AntiSpywareProduct* OR *FirewallProduct*)
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\powershell.exe" OR "\\pwsh.exe") OR ProcessCommandLine:("*powershell *" OR "*pwsh *"))  
+          AND ProcessCommandLine:("*Get-WmiObject*" OR "*gwmi *") AND ProcessCommandLine:"*\\\\root\\SecurityCenter*" AND ProcessCommandLine:(*AntiVirusProduct* OR *AntiSpywareProduct* OR *FirewallProduct*)
+        - Channel:Sysmon AND EventID:1 AND (Image:("\\powershell.exe" OR "\\pwsh.exe") OR CommandLine:("*powershell *" OR "*pwsh *") OR OriginalFileName:"PowerShell.EXE" 
+          OR Description:"Windows PowerShell") AND CommandLine:("*Get-WmiObject*" OR "*gwmi *") AND CommandLine:"*\\\\root\\SecurityCenter*" AND ProcessCommandLine:(*AntiVirusProduct* OR *AntiSpywareProduct* OR *FirewallProduct*)
+        - Channel:Windows-Powershell AND EventID:400 AND HostApplication:("*powershell *" OR "*pwsh *") AND HostApplication:"*\\\\root\\SecurityCenter*" AND HostApplication:(*AntiVirusProduct* OR *AntiSpywareProduct* OR *FirewallProduct*)
+        - Channel:Windows-Powershell-Operational AND EventID:4104 AND ScriptBlockText:("*Get-WmiObject*" OR "*gwmi*") AND ScriptBlockText:"*\\\\root\\SecurityCenter*" AND ScriptBlockText:(*AntiVirusProduct* OR *AntiSpywareProduct* OR *FirewallProduct*)
+  quote: >
+    - "A flurry of LDAP queries were seen coming from wuauclt.exe (Cobalt Strike) on the beachhead."
+  detection:
+      - https://github.com/vadim-hunter/Detection-Ideas-Rules/blob/main/Tools/BloodHound.yaml
+  quote: >
+    - "We believe that activity was related to a Bloodhound scan, as seconds later we see BloodHound results dropped to disk before being deleted."
+  detection:
+      - https://github.com/vadim-hunter/Detection-Ideas-Rules/blob/main/Tools/BloodHound.yaml
+  quote: >
+    - "AdFind was executed on a domain controller to gather additional info such as name, OS, and DNS name."
+      "cmd.exe /C adfind.exe -f objectcategory=computer -csv name cn OperatingSystem dNSHostName > some.csv"
+  mitre_attack:
+    discovery:
+      - T1018 - Remote System Discovery
+    detection:
+      ideas: >
+        - monitor AdFind tool execution, if it's not a legit tool in your environment. 
+          If it is - monitor Adfind execution with untypical for your environment command-line arguments.
+        - monitor renamed AdFind tool execution.
+        - monitor renamed AdFind binary file creation/renaming/deletion using VERSONINFO attributes.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+        file_create:
+          - EDR (minifilter)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\adfind.exe" OR ProcessCommandLine:"*adfind *") 
+        - Channel:Sysmon AND EventID:1 AND (OriginalFileName:"AdFind.exe" OR Company:"www\.joeware\.net" OR Product:"AdFind") AND NOT Image:"\\adfind.exe"
+        - Channel:EDR AND EventType:(FileCreate OR FileRename OR FileDelete) AND (OriginalFileName:"AdFind.exe" OR Company:"www\.joeware\.net" OR Product:"AdFind") 
+          AND NOT FilePath:"\\adfind.exe"
           
