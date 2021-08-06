@@ -547,6 +547,10 @@ analysis:
           - EDR (PsSetCreateProcessNotifyRoutine/Ex)
         file_create:
           - EDR (minifilter)
+        file_rename:
+          - EDR (minifilter)
+        file_delete:
+          - EDR (minifilter)
       rules: >
         - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\adfind.exe" OR ProcessCommandLine:"*adfind *") 
         - Channel:Sysmon AND EventID:1 AND (OriginalFileName:"AdFind.exe" OR Company:"www\.joeware\.net" OR Product:"AdFind") AND NOT Image:"\\adfind.exe"
