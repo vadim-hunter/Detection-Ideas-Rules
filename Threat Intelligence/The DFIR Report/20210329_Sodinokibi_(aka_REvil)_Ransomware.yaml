@@ -442,12 +442,12 @@ analysis:
         network_share_access:
           - Windows EID 5145
       rules: >
-        - Channel:Windows-Security AND EventID:5145 AND ShareName.keyword:/\\\\\*\\(ADMIN|IPC|C)\$*/ AND RelativeTargetName.keyword:*.exe AND Accesses:(*WriteData* OR *DELETE*)
+        - Channel:Windows-Security AND EventID:5145 AND ShareName.keyword:/\\\\\*\\(ADMIN|IPC|C)\$.*/ AND RelativeTargetName.keyword:*.exe AND Accesses:(*WriteData* OR *DELETE*)
         - Channel:Sysmon AND EventID:(11 OR 23) AND ProcessId:4 AND TargetFilename.keyword:/c\:\\.*/ AND (TargetFilename.keyword:*.exe OR IsExecutable:true)
         - Channel:EDR AND EventType:(FileCreate OR FileRename OR FileDelete) AND ProcessId:4 AND Filename.keyword:/c\:\\.*/ AND (Filename.keyword:*.exe OR FileMagicBytes:4D5A*) 
-        - (Channel:Windows-Security AND EventID:5145 AND ShareName.keyword:/\\\\\*\\(ADMIN|IPC|C)\$*/ AND RelativeTargetName.keyword:*.exe AND Accesses:*WriteData*)
+        - (Channel:Windows-Security AND EventID:5145 AND ShareName.keyword:/\\\\\*\\(ADMIN|IPC|C)\$.*/ AND RelativeTargetName.keyword:*.exe AND Accesses:*WriteData*)
           followed by
-          (Channel:Windows-Security AND EventID:5145 AND ShareName.keyword:/\\\\\*\\(ADMIN|IPC|C)\$*/ AND RelativeTargetName.keyword:*.exe AND Accesses:*DELETE*)
+          (Channel:Windows-Security AND EventID:5145 AND ShareName.keyword:/\\\\\*\\(ADMIN|IPC|C)\$.*/ AND RelativeTargetName.keyword:*.exe AND Accesses:*DELETE*)
           with the same [RelativeTargetName] within [1 min]
         - (Channel:Sysmon AND EventID:11 AND ProcessId:4 AND TargetFilename.keyword:/c\:\\.*/ AND (TargetFilename.keyword:*.exe OR IsExecutable:true))
           followed by
