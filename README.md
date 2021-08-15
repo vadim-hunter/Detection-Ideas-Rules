@@ -17,6 +17,7 @@ Note: in brackets (procedures/ideas/rules) or just (ideas/rules).
   - T1218.003 - CSMTP (2/4/7)
 - T1564 - Hide Artifacts
   - T1564.001 - Hidden Files and Directories (2/2/4)
+- T1197 - BITS Jobs (5/7/20)
 #### Credential Access
 - T1187 - Forced Authentication (1/3)
 #### Command and Control
