@@ -170,10 +170,10 @@ procedures:
           - Windows-PowerShell-Operational EID 4104 (Verbose)
           - EDR (Microsoft-Windows-PowerShell ETW)
       rules: >
-        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\powershell.exe" OR "\\pwsh.exe") OR ProcessCommandLine:("*powershell *" OR "*pwsh *") 
-          AND ProcessCommandLine:("*Set-ItemProperty*" OR "* sp *") AND ProcessCommandLine:"\\Services\\EventLog\\"
-        - Channel:Sysmon AND EventID:1 AND (Image:("\\powershell.exe" OR "\\pwsh.exe") OR CommandLine:("*powershell *" OR "*pwsh *") OR OriginalFileName:"PowerShell.EXE" 
-          OR Description:"Windows PowerShell") AND CommandLine:("*Set-ItemProperty*" OR "* sp *") AND CommandLine:"\\Services\\EventLog\\"
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\powershell.exe" OR "\\pwsh.exe" OR "\\reg.exe") OR ProcessCommandLine:("*powershell *" OR "*pwsh *" OR "*reg *") 
+          AND ProcessCommandLine:("*Set-ItemProperty*" OR "* sp *" OR "*add*") AND ProcessCommandLine:"\\Services\\EventLog\\"
+        - Channel:Sysmon AND EventID:1 AND (Image:("\\powershell.exe" OR "\\pwsh.exe" OR "\\reg.exe") OR CommandLine:("*powershell *" OR "*pwsh *" OR "*reg *") OR OriginalFileName:("PowerShell.EXE" OR "reg.exe")
+          OR Description:("Windows PowerShell" OR "Registry Console Tool")) AND CommandLine:("*Set-ItemProperty*" OR "* sp *") AND CommandLine:"\\Services\\EventLog\\"
         - Channel:Windows-Powershell AND EventID:400 AND HostApplication:("*powershell *" OR "*pwsh *") AND HostApplication:("*Set-ItemProperty*" OR "* sp *") 
           AND HostApplication:"\\Services\\EventLog\\"
         - Channel:Windows-Powershell-Operational AND EventID:4104 AND (ScriptBlockText:"*Limit-EventLog*" 
