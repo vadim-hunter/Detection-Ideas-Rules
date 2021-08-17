@@ -10,6 +10,7 @@ Note: in brackets (procedures/ideas/rules) or just (ideas/rules).
 #### Persistence
 - TXXXX - Active Directory Object ACL manipulation
   - TXXXX.001 - AdminSDHolder (3/5/15)
+- T1197 - BITS Jobs (5/8/21)
 #### Defense Evasion
 - T1070 - Indicator Removal on Host
   - T1070.001 - Clear Windows Event Logs (7/12/31) 
