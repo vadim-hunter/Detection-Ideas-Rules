@@ -63,7 +63,7 @@ procedures:
         bits_job_created:
           - Microsoft-Windows-Bits-Client EID 3
       rules: >
-        - Channel:Microsoft-Windows-Bits-Client AND ProcessPath:("\\bitsadmin.exe" OR "\\pwsh.exe" OR "\\powershell.exe" OR "\\rundll32.exe" OR "\\certutil.exe" 
+        - Channel:Microsoft-Windows-Bits-Client AND EventID:3 AND ProcessPath:("\\bitsadmin.exe" OR "\\pwsh.exe" OR "\\powershell.exe" OR "\\rundll32.exe" OR "\\certutil.exe" 
           OR "\\cmstp.exe" OR "\\msbuild.exe")
   procedure T1197.002:
     description:
