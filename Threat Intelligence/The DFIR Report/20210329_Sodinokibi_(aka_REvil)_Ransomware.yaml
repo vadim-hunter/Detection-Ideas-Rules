@@ -613,7 +613,7 @@ analysis:
   quote: >
     - "For the final actions, the threat actors dropped a ransomware executable on the domain controller in C:\\Windows and then used BITSAdmin to deploy the executable to remote systems."
   detection:
-    - https://github.com/vadim-hunter/Hunting-for-Procedures/blob/main/Defense%20Evasion/T1197%20-%20BITS%20Jobs/Procedures.yaml
+    - https://github.com/vadim-hunter/Detection-Ideas-Rules/blob/main/TTPs/Defense%20Evasion/T1197%20-%20BITS%20Jobs/Procedures.yaml
   quote: >
     - "The -smode flag was used with the ransomware executable to set the system to reboot into Safe Mode with Networking..."
     - "bootcfg /raw /a /safeboot:network /id 1 (pre-Vista)"
