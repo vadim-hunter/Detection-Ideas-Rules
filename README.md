@@ -16,7 +16,7 @@ Note: in brackets (procedures/ideas/rules) or just (ideas/rules).
   - T1070.001 - Clear Windows Event Logs (7/12/31) 
 - T1218 - Signed Binary Proxy Execution
   - T1218.003 - CSMTP (2/4/7)
-- T1564 - Hide Artifacts
+- T1564 - Hide Artifacts (3/5/9)
   - T1564.001 - Hidden Files and Directories (2/2/4)
 - T1197 - BITS Jobs (5/8/21)
 #### Credential Access
