@@ -1,0 +1,89 @@
+tactics:
+  - TA0005 - Defense Evasion
+techniques:
+  - T1564 - Hide Artifacts
+description: >
+  Adversaries may attempt to hide artifacts associated with their behaviors to evade detection. Operating systems may have features to hide various artifacts, such as important system files and administrative task execution, 
+  to avoid disrupting user work environments and prevent users from changing files or features on the system.
+links:
+  - https://attack.mitre.org/techniques/T1564/
+procedures:
+  procedure T1564.001:
+    description: >
+      - adversary may hide malicious payloads or archives with stolen data in $Recycle.Bin folder.
+    detection:
+      ideas: >
+        - hunt for executable files or archives created in $Recycle.Bin folder and having abnormal paths.
+      note: >
+        - add more interesting files extensions at will, in addition to extensions use file magic bytes.
+      telemetry:
+        file_create:
+          - Sysmon EID 11
+          - EDR (minifilter)
+        file_rename:
+          - EDR (minifilter)
+      rules: >
+        - Channel:Sysmon AND EventID:11 AND TargetFilename.keyword:/.*\:\\$Recycle\.Bin\\.*/ AND NOT TargetFilename.keyword:/.*\:\\$Recycle\.Bin\\S\-1\-5\-.*/
+          AND TargetFilename.keyword:(*.exe OR *.dll OR *.sys OR *.ps1 OR *.vbs OR *.vbe OR *.vba OR *.js OR *.wsh OR *.rar OR *.zip)
+        - Channel:EDR AND EventType:(FileCreate OR FileRename) AND TargetFilename.keyword:/.*\:\\$Recycle\.Bin\\.*/ AND NOT TargetFilename.keyword:/.*\:\\$Recycle\.Bin\\S\-1\-5\-.*/
+          AND (TargetFilename.keyword:(*.exe OR *.dll OR *.sys OR *.ps1 OR *.vbs OR *.vbe OR *.vba OR *.js OR *.wsh OR *.rar OR *.zip) OR FileMagicBytes:(4D5A* OR 504B0304* OR 52617221*)
+  procedure T1564.002:
+    description: >
+      - adversary may execute malicious payloads located in $Recycle.Bin folder.
+    detection:
+      ideas: >
+        - hunt for processes creation events with process executable image located in $Recycle.Bin folder.
+      note: >
+        - for Sysmon we can also use CurrentDirectory field.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND NewProcessName.keyword:/.*\:\\$Recycle\.Bin\\.*/
+        - Channel:Sysmon AND EventID:1 AND (Image.keyword:/.*\:\\$Recycle\.Bin\\.*/ OR CurrentDirectory.keyword:/.*\:\\$Recycle\.Bin\\.*/)
+      ideas: >
+        - hunt for image loading events where process image or loaded image is located in $Recycle.Bin folder.
+      telemetry:
+        image_load:
+          - Sysmon EID 7
+          - EDR (PsSetLoadImageNotifyRoutine)
+      rules: >
+        - Channel:Sysmon AND EventID:7 AND (Image.keyword:/.*\:\\$Recycle\.Bin\\.*/ OR ImageLoaded.keyword:/.*\:\\$Recycle\.Bin\\.*/)
+  procedure T1564.003:
+    description: >
+      - adversary may use powershell/cscript/wscript to execute malicious scripts hidden in $Recycle.Bin folder.
+    ideas: >
+      - hunt for powershell/cscript/wscript processes creation with $Recycle.Bin folder path in command-line.
+    telemetry:
+      process_create:
+        - Windows EID 4688
+        - Sysmon EID 1
+        - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+    rules: >
+      - Channel:Windows-Security AND EventID:4688 AND NewProcessName:("\\powershell.exe" OR "\\pwsh.exe" OR "\\wscript.exe" OR "\\cscript.exe") 
+        AND ProcessCommandLine.keyword:/.*\:\\$Recycle\.Bin\\.*/
+      - Channel:Sysmon AND EventID:1 AND (Image:("\\powershell.exe" OR "\\pwsh.exe" OR "\\wscript.exe" OR "\\cscript.exe") 
+        OR OriginalFileName:("PowerShell.EXE" OR "wscript.exe" OR "cscript.exe") OR Description:("Windows PowerShell" OR "Microsoft ® Console Based Script Host" OR "Microsoft ® Windows Based Script Host"))  
+        AND CommandLine.keyword:/.*\:\\$Recycle\.Bin\\.*/
+  procedure T1564.004:
+    description: >
+      - adversary may leverage LOLBins binaries to proxy execute malicious payloads located in $Recycle.Bin folder.
+    ideas: >
+      - hunt for LOLBins binaries process creation with $Recycle.Bin folder path in command-line.
+    note: >
+      - profile your environment and add more LOLBins at will.
+    telemetry:
+      process_create:
+        - Windows EID 4688
+        - Sysmon EID 1
+        - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+    rules: >
+      - Channel:Windows-Security AND EventID:4688 AND NewProcessName:("\\rundll32.exe" OR "\\regsvr32.exe" OR "\\mshta.exe" OR "\\msbuild.exe" OR "\\msiexec.exe") 
+        AND ProcessCommandLine.keyword:/.*\:\\$Recycle\.Bin\\.*/
+      - Channel:Sysmon AND EventID:1 AND (Image:("\\rundll32.exe" OR "\\regsvr32.exe" OR "\\mshta.exe" OR "\\msbuild.exe" OR "\\msiexec.exe") 
+        OR OriginalFileName:("rundll32.exe" OR "regsvr32.exe" OR "mshta.exe" OR "msbuild.exe" OR "msiexec.exe") OR Description:("Windows® installer" OR "Windows host process (Rundll32)" 
+        OR "Microsoft(C) Register Server" OR "Microsoft (R) HTML Application host" OR "MSBuild.exe"))  
+        AND CommandLine.keyword:/.*\:\\$Recycle\.Bin\\.*/
+        
