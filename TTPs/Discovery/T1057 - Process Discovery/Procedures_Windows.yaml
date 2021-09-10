@@ -1,0 +1,194 @@
+tactics:
+  - TA0007 - Discovery
+techniques:
+  - T1057 - Process Discovery
+description: >
+  Adversaries may attempt to get information about running processes on a system. Information obtained could be used to gain an understanding of common software/applications running on systems within the network. 
+  Adversaries may use the information from Process Discovery during automated discovery to shape follow-on behaviors, including whether or not the adversary fully infects the target and/or attempts specific actions.
+links:
+  - https://attack.mitre.org/techniques/T1057/
+procedures:
+  procedure T1057.001:
+    description: >
+      - adversary may use standard tasklist and find/findstr utilities to discover identifier of the sensitive process (PID).
+    emulation:
+      tools: >
+        - tasklist.exe
+        - find.exe
+        - findstr.exe
+      cmd: >
+        - tasklist | findstr lsass
+        - tasklist | find "lsass"
+        - tasklist /v /fo csv | findstr /i "lsass" 
+    detection:
+      ideas: >
+        - hunt for find/findstr utilities execution with sensitive process name in command-line.  
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\findstr.exe" OR "\\find.exe") OR ProcessCommandLine:("*find *" OR "*findstr *")) 
+          AND ProcessCommandLine:*lsass*
+        - Channel:Sysmon AND EventID:1 AND (Image:("\\findstr.exe" OR "\\find.exe") OR CommandLine:("*find *" OR "*findstr *") OR OriginalFileName:("find.exe" OR "findstr.exe") OR 
+          Description:("Find String (QGREP) Utility" OR "Find String (grep) Utility")) AND CommandLine:*lsass*
+  procedure T1057.002:
+    description: >
+      - adversary may use standard WMIC.exe utility to discover identifier of the sensitive process (PID).
+    emulation:
+      tools:
+        - wmic.exe
+        - find.exe
+        - findstr.exe
+      cmd: >
+        - wmic process get name,Processid | findstr lsass
+        - wmic process get name,Processid | find "lsass"
+        - wmic process where "Name like '%%lsass.exe%%'" get processid
+        - wmic process where name^="lsass.exe" get Processid
+    detection:
+      ideas: >
+        - hunt for WMIC utility execution with sensitive process name and specific parameters in command-line.  
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\wmic.exe" OR ProcessCommandLine:"wmic *") AND ProcessCommandLine:*process* AND ProcessCommandLine:*get* 
+          AND ProcessCommandLine:*lsass*
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\wmic.exe" OR CommandLine:"wmic *" OR OriginalFileName:"wmic.exe" OR Description:("WMI Commandline Utility")) AND CommandLine:*process* 
+          AND CommandLine:*get* AND CommandLine:*lsass*
+      ideas: >
+        - hunt for suspicious WMI queries with sensitive process name and specific parameters in command-line.
+      notes: >
+        - Start IWbemServices::ExecQuery - ROOT\CIMV2 : SELECT ProcessId FROM Win32_Process WHERE name="lsass.exe"
+      telemetry:
+        wmi_execution:
+          - EDR (Microsoft-Windows-WMI-Activity ETW)
+      rules: >
+        - Channel:EDR AND EventType:WMIexecution AND WMICommand:*SELECT* AND WMICommand:"*Win32_Process*" AND WMICommand:*lsass*
+  procedure T1057.003:
+    description: >
+      - adversary may use Powershell interpreter to discover identifier of the sensitive process (PID).
+    emulation:
+      tools:
+        - powershell.exe
+        - pwsh.exe
+      cmd: >
+        - powershell -c "get-process lsass |select -expand id"
+        - powershell -c "gps lsass |select -expand id"
+        - powershell -c "(get-process lsass).id"
+        - powershell -c "(gps lsass).id" 
+      powershell: >
+        - get-process lsass |select -expand id
+        - gps lsass |select -expand id
+        - (get-process lsass).id
+        - (gps lsass).id
+        - Get-CimInstance Win32_Process -Filter "Name='lsass.exe'" | Select-Object ProcessId
+        - Get-WmiObject Win32_Process | Select name, ProcessId | findstr "lsass"
+        - gwmi Win32_Process | Select name, ProcessId | findstr "lsass"
+    detection:
+      ideas: >
+        - hunt for Powershell execution with sensitive process name and specific cmdlets.  
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+        script_execution:
+          - Windows-Powershell EID 400
+          - Windows-PowerShell-Operational EID 4104 (Verbose)
+          - EDR (Microsoft-Windows-PowerShell ETW)
+      rules: >
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\powershell.exe" OR "\\pwsh.exe") OR ProcessCommandLine:("*powershell *" OR "*pwsh *"))  
+          AND ((ProcessCommandLine:("*get-process*" OR "gps *") AND ProcessCommandLine:*lsass* AND ProcessCommandLine:*id*) 
+          OR (ProcessCommandLine:("*Get-WmiObject*" OR "*gwmi *") AND ProcessCommandLine:"*Win32_Process*" AND ProcessCommandLine:*lsass*))
+        - Channel:Sysmon AND EventID:1 AND (Image:("\\powershell.exe" OR "\\pwsh.exe") OR CommandLine:("*powershell *" OR "*pwsh *") OR OriginalFileName:"PowerShell.EXE" 
+          OR Description:"Windows PowerShell") AND ((CommandLine:("*get-process*" OR "gps *") AND CommandLine:*lsass* AND CommandLine:*id*) 
+          OR (CommandLine:("*Get-WmiObject*" OR "*gwmi *") AND CommandLine:"*Win32_Process*" AND CommandLine:*lsass*))
+        - Channel:Windows-Powershell AND EventID:400 AND HostApplication:("*powershell *" OR "*pwsh *") AND ((HostApplication:("*get-process*" OR "gps *") AND HostApplication:*lsass* AND HostApplication:*id*) 
+          OR (HostApplication:("*Get-WmiObject*" OR "*gwmi *") AND HostApplication:"*Win32_Process*" AND HostApplication:*lsass*))
+        - Channel:Windows-Powershell-Operational AND EventID:4104 AND ((ScriptBlockText:("*get-process*" OR "gps *") AND ScriptBlockText:*lsass* AND ScriptBlockText:*id*) 
+          OR (ScriptBlockText:("*Get-WmiObject*" OR "*gwmi *") AND ScriptBlockText:"*Win32_Process*" AND ScriptBlockText:*lsass*))
+  procedure T1057.004:
+    description: >
+      - adversary may discovers identifier of sensitive process id (PID) running in a shared host process (svchost.exe) using Powershell cmdlets.
+    emulation:
+      tools:
+        - powershell.exe
+        - pwsh.exe
+      powershell: >
+        - Get-WmiObject -Class win32_service -Filter "name = 'eventlog'" | select -expand ProcessId
+        - Get-WmiObject -Class win32_service -Filter "name = 'termservice'" | select -expand ProcessId
+        - gwmi -Class win32_service -Filter "name = 'eventlog'" | select -expand ProcessId
+        - gwmi -Class win32_service -Filter "name = 'termservice'" | select -expand ProcessId 
+    detection:
+      ideas: >
+        - monitor specific Powershell commandlets execution aimed at obtaining Eventlog/TermService process identifier (PID).
+      note: >
+        - add more sensitive service processes at will.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+        script_execution:
+          - Windows-Powershell EID 400
+          - Windows-Powershell-Operational EID 4104 (Verbose)
+          - EDR (Microsoft-Windows-PowerShell ETW)
+      rules:
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\powershell.exe" OR "\\pwsh.exe") OR ProcessCommandLine:("*powershell *" OR "*pwsh *"))  
+          AND ProcessCommandLine:"*win32_service*" AND ProcessCommandLine:(*eventlog* OR *termservice*)
+        - Channel:Sysmon AND EventID:1 AND (Image:("\\powershell.exe" OR "\\pwsh.exe") OR CommandLine:("*powershell *" OR "*pwsh *") OR OriginalFileName:"PowerShell.EXE" 
+          OR Description:"Windows PowerShell") AND CommandLine:"*win32_service*" AND CommandLine:(*eventlog* OR *termservice*)   
+        - Channel:Windows-Powershell AND EventID:400 AND HostApplication:("*powershell *" OR "*pwsh *") AND HostApplication:"*win32_service*" AND HostApplication:(*eventlog* OR *termservice*)          
+        - Channel:Windows-Powershell-Operational AND EventID:4104 AND ScriptBlockText:("*Get-WmiObject*" OR "* gwmi *") AND ScriptBlockText:"*win32_service*" AND ScriptBlockText:(*eventlog* OR *termservice*)
+      ideas: >
+        - monitor specific WMI commands execution which discover Windows Eventlog *service process PID.
+      notes: >
+        - Start IWbemServices::ExecQuery - root\cimv2 : select * from win32_service where name = 'eventlog'
+        - Start IWbemServices::ExecQuery - root\cimv2 : select * from win32_service where name = 'termservice'
+      telemetry:
+        wmi_execution:
+          - EDR (Microsoft-Windows-WMI-Activity ETW)
+      rules:
+        - Channel:EDR AND EventType:WMIExecution AND WMICommand:*select* AND WMICommand:"*win32_service*" AND WMICommand:(*eventlog* OR *termservice*)
+  procedure T1057.005:
+    description: >
+      - adversary may use standard tasklist and find/findstr utilities to discover identifier of process (PID) running in a shared host process (svchost.exe).
+    emulation:
+      tools:
+        - tasklist.exe
+      cmd: >
+        - tasklist /M:rdpcorets.dll
+        - tasklist /M:rdpbase.dll
+        - tasklist /M:termsrv.dll
+        - tasklist /M:wevtsvc.dll
+        - tasklist /svc | find "EventLog"
+        - tasklist /svc | find "TermService"
+        - tasklist /svc | findstr EventLog
+        - tasklist /svc | findstr TermService
+    detection:
+      ideas: >
+        - monitor tasklist and find/findstr utilities execution with specific command-lines.
+      note: >
+        - add more sensitive service processes at will.
+      telemetry:
+        process_create:
+          - Windows EID 4688
+          - Sysmon EID 1
+          - EDR (PsSetCreateProcessNotifyRoutine/Ex)
+        script_execution:
+          - Windows-Powershell EID 400
+          - Windows-Powershell-Operational EID 4104 (Verbose)
+          - EDR (Microsoft-Windows-PowerShell ETW)
+      rules:
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:("\\findstr.exe" OR "\\find.exe") OR ProcessCommandLine:("*find *" OR "*findstr *")) 
+          AND ProcessCommandLine:(*eventlog* OR *termservice*)
+        - Channel:Sysmon AND EventID:1 AND (Image:("\\findstr.exe" OR "\\find.exe") OR CommandLine:("*find *" OR "*findstr *") OR OriginalFileName:("find.exe" OR "findstr.exe") 
+          OR Description:("Find String (QGREP) Utility" OR "Find String (grep) Utility")) AND CommandLine:(*eventlog* OR *termservice*)
+        - Channel:Windows-Security AND EventID:4688 AND (NewProcessName:"\\tasklist.exe" OR ProcessCommandLine:"*tasklist *") AND ProcessCommandLine:(*rdpcorets* OR *rdpbase* OR *termsrv* OR *wevtsvc*)
+        - Channel:Sysmon AND EventID:1 AND (Image:"\\tasklist.exe" OR CommandLine:"*tasklist *" OR OriginalFileName:"tasklist.exe" OR Description:"Lists the current running tasks" 
+          AND CommandLine:(*rdpcorets* OR *rdpbase* OR *termsrv* OR *wevtsvc*)
+        
