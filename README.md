@@ -21,6 +21,8 @@ Note: in brackets (procedures/ideas/rules) or just (ideas/rules).
 - T1197 - BITS Jobs (5/8/21)
 #### Credential Access
 - T1187 - Forced Authentication (1/3)
+#### Discovery
+- T1057 - Process Discovery (5/7/18) 
 #### Command and Control
 - T1105 - Ingress Tool Transfer (2/4/7)
 - T1071 - Application Layer Protocol
